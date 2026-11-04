@@ -1,7 +1,10 @@
 {
   "schema": 1,
   "expected_overleaf_revision": "d51721ce731a50d3b24dbb7d1cc5e426c9f2b581",
-  "approved_github_commit": "b940db63c1c429a2c52f9cda41084dde0ff33d60",
-  "approved_paths": [],
-  "dry_run": true
+  "approved_github_commit": "b6e59225bd3949d45b205d5722b2a72b0f177297",
+  "approved_paths": [
+    "eval.tex",
+    "future.tex"
+  ],
+  "dry_run": false
 }
