@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "expected_overleaf_revision": "1b47cedcbe41c1406c60bca8da5ab7724b181c41",
+  "approved_github_commit": "3fd733508c5eace6a80c6d68cd1c2fd01e00e762",
+  "approved_paths": [
+    "main_osdi.tex",
+    "usenix2019_v3.sty"
+  ],
+  "dry_run": false
+}
