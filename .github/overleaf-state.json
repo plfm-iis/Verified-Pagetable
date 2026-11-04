@@ -1,0 +1,97 @@
+{
+  "github_source_commit": "8b819f68023823702ce8d346f3508dc0129e8157",
+  "overleaf_revision": "1b47cedcbe41c1406c60bca8da5ab7724b181c41",
+  "paper_manifest": {
+    "4lvpt.jpg": {
+      "mode": "100644",
+      "oid": "f40526b69f373634b6c39e111cc272fe2c655cb6"
+    },
+    "ACM-Reference-Format.bst": {
+      "mode": "100644",
+      "oid": "ac35934b523f0bb56bb90783169fea88b3375c3f"
+    },
+    "abstract.tex": {
+      "mode": "100644",
+      "oid": "27fedfd32b1080be6574f4ca60eb145d26563985"
+    },
+    "acmart.cls": {
+      "mode": "100644",
+      "oid": "ed575e9ebcf7224bd69e51aa75df7bf15e8e3377"
+    },
+    "allocator.tex": {
+      "mode": "100644",
+      "oid": "0d99ff9c22558be06c7cc65439d88b16f494363d"
+    },
+    "background.tex": {
+      "mode": "100644",
+      "oid": "cf9867fda7e98d39c5b169574e539b97bb0c6d68"
+    },
+    "casestudy.tex": {
+      "mode": "100644",
+      "oid": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "coq.tex": {
+      "mode": "100644",
+      "oid": "2fd1ccf043ec746e37bfcad3c9efb485d7e7325f"
+    },
+    "eval.tex": {
+      "mode": "100644",
+      "oid": "9792ad25fea626dbeccc92fe476e8224d01b1cef"
+    },
+    "extended_abstract.tex": {
+      "mode": "100644",
+      "oid": "7d3bc7e7f3773aa3e61dc869da0deb5bbb476e7e"
+    },
+    "formalization.tex": {
+      "mode": "100644",
+      "oid": "cc1cb0fddc2428aec400d9d8c252d0d875bb22ab"
+    },
+    "future.tex": {
+      "mode": "100644",
+      "oid": "d64bea41677a9f25d5a2e8aca8ce30fc390de4e9"
+    },
+    "intro.tex": {
+      "mode": "100644",
+      "oid": "5b6e6fccf4c2a58a40427116c1d615ca2f86edf0"
+    },
+    "main.tex": {
+      "mode": "100644",
+      "oid": "4bc21b204ae23ebaf09364dec0098613d20aebec"
+    },
+    "overview-sw.tex": {
+      "mode": "100644",
+      "oid": "4e4eab8e3ea7f2ac10aba8dd2cade55fe8b400a3"
+    },
+    "reference.bib": {
+      "mode": "100644",
+      "oid": "ef612f7740dc8c8175a4917683326276b90b2a5c"
+    },
+    "resub_info.tex": {
+      "mode": "100644",
+      "oid": "b72ddec61b393ef0a9412aded4b12006d5cdeac4"
+    },
+    "semantics.tex": {
+      "mode": "100644",
+      "oid": "3cda498043de7f6d76443504097250d2226b2cda"
+    },
+    "usenix-2020-09.sty": {
+      "mode": "100644",
+      "oid": "435d2964dd2ea9788de5dba1165225a3ec22f2b8"
+    },
+    "workflow.jpg": {
+      "mode": "100644",
+      "oid": "56882b609693098252ea6ef6fa2defaab4ba35c2"
+    },
+    "workflow.pdf": {
+      "mode": "100644",
+      "oid": "510196417fc458e07a1362876aeb452626d573d5"
+    },
+    "workflow.svg": {
+      "mode": "100644",
+      "oid": "70328d8d3f99def89301539a83ef12a9108b9b31"
+    }
+  },
+  "project_id": "6870a93e72f08c2609530c3c",
+  "schema": 1,
+  "verified_at_utc": "2026-11-04T02:13:26.413295+00:00"
+}
