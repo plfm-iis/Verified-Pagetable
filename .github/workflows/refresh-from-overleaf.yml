@@ -1,0 +1,33 @@
+name: Refresh paper from Overleaf
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/overleaf-refresh-trigger']
+permissions:
+  contents: write
+concurrency:
+  group: overleaf-bridge
+  cancel-in-progress: false
+jobs:
+  refresh:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Test conflict and data-loss boundaries
+        run: PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/test_overleaf_bridge.py
+      - name: Refresh and verify Overleaf source
+        env:
+          OVERLEAF_GIT_TOKEN: ${{ secrets.OVERLEAF_GIT_TOKEN }}
+        run: python3 .github/scripts/overleaf_bridge.py refresh
+      - name: Validate outbound connection without writing
+        env:
+          OVERLEAF_GIT_TOKEN: ${{ secrets.OVERLEAF_GIT_TOKEN }}
+        run: |
+          # Refresh may have committed the baseline; validate the new checkout.
+          GITHUB_SHA="$(git rev-parse HEAD)" BRIDGE_FORCE_DRY_RUN=true python3 .github/scripts/overleaf_bridge.py sync

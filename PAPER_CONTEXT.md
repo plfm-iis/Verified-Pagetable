@@ -1,0 +1,17 @@
+# Verified Pagetable paper
+- GitHub: plfm-iis/Verified-Pagetable; branch: main.
+- Overleaf project: 6870a93e72f08c2609530c3c.
+- Git remote: https://git@git.overleaf.com/6870a93e72f08c2609530c3c
+- Observed full-paper entry: main.tex, titled Push-Button Verification of Paging Functions in Operating Systems.
+- Bibliography: reference.bib. Appendices included by main.tex: semantics.tex and coq.tex.
+- Source of current collaborative manuscript: Overleaf. GitHub keeps a verified snapshot and collaboration metadata.
+- Bidirectional bridge authorized on 2026-11-04. No scheduled jobs are configured.
+- Inbound: refresh-from-overleaf.yml, manual dispatch or update .github/overleaf-refresh-trigger.
+- Outbound: sync-paper-to-overleaf.yml, manual dispatch defaults to dry run, or explicit .github/overleaf-sync-request.json.
+- First refresh requires identical paper manifests. Later refresh refuses pending GitHub paper changes and large deletions.
+- Only an explicitly approved exact diff may be written outbound; no force push, automatic conflict merge, or arbitrary test edits.
+- State evidence: .github/overleaf-state.json contains Overleaf revision, paper blob manifest, source GitHub commit, and UTC verification time. The resulting GitHub commit and successful run must also be recorded.
+- Request JSON schema: {"schema":1,"expected_overleaf_revision":"FULL_SHA","approved_github_commit":"FULL_SHA","approved_paths":["exact/changed/path.tex"],"dry_run":false}.
+- Never create a write request just to test the bridge. Existing organization secret OVERLEAF_GIT_TOKEN is used; its availability is verified by the first run.
+- Metadata exclusions: .github/, .ai/, AGENTS.md, PAPER_CONTEXT.md, CLAIMS.md. Regular non-executable paper blobs only.
+- If Overleaf succeeds but GitHub baseline recording fails, reconcile the two revisions before retrying.
