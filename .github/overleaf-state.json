@@ -1,6 +1,6 @@
 {
-  "github_source_commit": "9a10299be2d4b1dd91caaaf593f94d6ec20d06b6",
-  "overleaf_revision": "941b403dd2bd0e2185fe03207f2b121dbd4079a5",
+  "github_source_commit": "9d4900c33f55882b69c7bda7934931db200570df",
+  "overleaf_revision": "adbf0eb75e8dcb185402f357fea50dea05cef77b",
   "paper_manifest": {
     "4lvpt.jpg": {
       "mode": "100644",
@@ -32,11 +32,11 @@
     },
     "coq.tex": {
       "mode": "100644",
-      "oid": "2fd1ccf043ec746e37bfcad3c9efb485d7e7325f"
+      "oid": "bd837f67c959ab1f615072210705084bb51d842e"
     },
     "eval.tex": {
       "mode": "100644",
-      "oid": "60dcdf585ee08690b9b947c2a5c411f7f6d2823b"
+      "oid": "447514de560e595a62a6e199e8cbdd5609425d4e"
     },
     "extended_abstract.tex": {
       "mode": "100644",
@@ -64,7 +64,7 @@
     },
     "overview-sw.tex": {
       "mode": "100644",
-      "oid": "4e4eab8e3ea7f2ac10aba8dd2cade55fe8b400a3"
+      "oid": "13cef7cdc5c5779a91f44136620b9a6002e648ab"
     },
     "reference.bib": {
       "mode": "100644",
@@ -76,7 +76,7 @@
     },
     "semantics.tex": {
       "mode": "100644",
-      "oid": "3cda498043de7f6d76443504097250d2226b2cda"
+      "oid": "4d7375ab4b1dc64c7a0cba0718262682d4e0c7d2"
     },
     "usenix-2020-09.sty": {
       "mode": "100644",
@@ -101,5 +101,5 @@
   },
   "project_id": "6870a93e72f08c2609530c3c",
   "schema": 1,
-  "verified_at_utc": "2026-11-04T02:43:05.830719+00:00"
+  "verified_at_utc": "2026-11-04T02:56:45.912706+00:00"
 }
