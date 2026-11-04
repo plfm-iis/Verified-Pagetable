@@ -24,6 +24,8 @@ Below, we formally define the semantics we used in our LLVM symbolic executor.
 
 \subsection{Memory operations}
 
+\yfc{\textcolor{blue}{[Review: load/store encoding] The store rule should use $\mathrm{Store}(H,R(p),R(v))$ under the standard array argument order; both its formula and explanatory expression currently reverse the address and value. Also, $P\land R(p)$ is ill-typed when R(p) is an integer address. Define a Boolean memory-validity predicate and its assumptions, or explain the intended condition. Check these issues against the implementation to distinguish presentation errors from verifier errors.}}
+
 \paragraph{Load.}
 The load instruction ``v = load $p$'', where both $v$ and $p$ are variable names, updates the program state as follows.
 \[
@@ -71,6 +73,8 @@ We write ``$\text{pred}\ b_1(R_1,H_1,P_1) \ldots b_n(R_n,H_n, P_n)$'' to denote 
 
 The ite expression $\text{ite}(P_1,R_1(v_1), \text{ite}(P_2, R_2(v_2), \ldots))$ basically states that if $P_i$ is true, return $R_i(v_i)$.
 
+\yfc{\textcolor{blue}{[Review: integer encoding contract] Please specify how fixed-width LLVM values are represented as integers and distinguish signed from unsigned icmp predicates. State the supported bit widths, wrap-around behavior, and treatment of poison and overflow flags. In particular, the displayed add rule has no truncation, despite the main text saying wrap-around is enforced. Either provide the required encoding or state and establish the restrictions under which the mathematical-integer rule is sound.}}
+
 \paragraph{Icmp and Select.}
 Let $\circ \in \{\text{eq}, \text{gt}, \text{lt}, \dots\}$. The semantics of the comparison and select statements are as follows.
 \paragraph{\texttt{icmp}.}
@@ -98,6 +102,8 @@ The ``and'' and ``or'' operations are encoded using QF\_AUFL\\IA's \texttt{mod} 
 &\quad_{(R(p_2)/2^i)\bmod2, 0))]},H,P)_\mathit{Inst}
 \end{aligned}
 \]
+\yfc{\textcolor{blue}{[Review: bitwise or] In the general per-bit encoding, when the first operand's bit is 1, the result bit must be 1. The displayed ite instead returns 0 in that branch. Please correct the rule and compare it with the implementation, including the simple case $1\mathbin{\vert}0=1$.}}
+
 \paragraph{\texttt{or}.}
 \[
 \begin{aligned}

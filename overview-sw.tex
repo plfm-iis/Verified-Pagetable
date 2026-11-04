@@ -180,6 +180,8 @@ First, the paging functions are compiled into LLVM IR, which preserves low-level
 We demonstrate that PPV can be integrated with Spoq to automate this verification step. Rather than proving refinement directly for each paging-function implementation, PPV verifies two conditions: update correctness and non-interference. Based on these conditions, we construct a reusable \emph{connecting proof} in Coq. The proof establishes a refinement relation between the concrete page-table state and the abstract paging model used by Spoq. Intuitively, the refinement relation states that a walk in the concrete page table returns the same result as a lookup in the abstract map. The connecting proof then shows that if update correctness and non-interference hold, every execution of the concrete \textit{map} and \textit{unmap} operations preserves this relation. Consequently, the behavior of the concrete implementation remains consistent with the abstract specification after every update. This observation yields the following property.
 
 \theoremstyle{definition}
+\yfc{\textcolor{blue}{[Review: scope of Property 1] Please state the complete hypotheses needed for refinement, including the admissible-state invariant, its initialization and preservation by map/unmap, and a suitable purity or observational-frame condition for resolve. The two return-value array laws alone do not establish these obligations. Connect each hypothesis to a PPV check or an explicit assumption; in particular, explain how the appendix's Hpure obligation is discharged.}}
+
 \newtheorem{remark}{Property}
 \begin{remark}
 For any implementation of the paging primitives \textit{walk}, \textit{map}, and \textit{unmap}, if the implementation satisfies update correctness and non-interference, then the implementation refines the corresponding high-level abstract specification.
@@ -414,6 +416,8 @@ Subsequently, executing  \textit{resolve(id, addr)} starting from the state $(R_
 
 In LLVM IR, each conditional branch produces two successor basic blocks and consequently introduces a $\phi$ instruction to select the appropriate value upon merging. Our symbolic executor follows the same principle: when encountering a conditional instruction, it forks the current state into two states, $(R_{2a}, H_{2a}, P_{2a})$ and $(R_{2b}, H_{2b}, P_{2b})$. These two states are later merged using the ite (if-then-else) operation. Specifically, line 24 corresponds to a $\phi$ instruction in IR, indicating that the return value depends on the execution path and must therefore be merged. We merge $R_{2a}(\textit{ret})$ and $R_{2b}(\textit{ret})$ to obtain $R_{3}(\textit{ret})$. Following this merge, $H_{3}$ remains unchanged since $H_{2a}$ and $H_{2b}$ are identical, and the path condition is updated to $P_{3} \triangleq P_{2a} \vee P_{2b}$, which simplifies to \textit{true}.
 
+\yfc{\textcolor{blue}{[Review: merged symbolic state] Please rederive Equation~\ref{state_3} from the two predecessor states. Its guard currently tests the address of the PGD entry rather than the loaded pte-base value. The leaf offset also uses bits [31:12], whereas the preceding resolve branch uses [21:12]. Correct the displayed expression and check that the executable encoding uses the intended guard and offset.}}
+
 \begin{equation}
 \label{state_3}
 \small
@@ -451,6 +455,8 @@ At this point, we can see how the symbolic states are produced.
 
 After symbolic execution, we query an SMT solver on the satisfiability of the formula 
 \[W \wedge R_0(\textit{pte}) \neq R_3(\textit{ret}).\]If this formula is satisfiable, then there exists a counterexample that satisfies the well-formedness condition $W$ but violates update correctness. Conversely, if this formula is unsatisfiable, then no such counterexample exists, and thus the update correctness condition is verified. The final component of the proof is therefore the \emph{well-formedness} condition.
+
+\yfc{\textcolor{blue}{[Review: insufficient local precondition] Please strengthen or qualify the claim that pgd-address and pte-address being distinct suffices for both array laws. Different virtual pages can still alias the same leaf entry: addresses 0 and $2^{22}$ have different PGD indices but the same leaf index, and their PGD entries may point to the same lower-level table while satisfying the displayed W. A map at one address can then change resolve at the other. State the additional separation assumptions needed for the two compared walks and show that the allocator interface establishes them. Update correctness also needs the relevant intermediate entry to be valid: with a zero pte-base, map can write through that base while resolve returns zero. Identify the exact preconditions and how they are checked or supplied by callers.}}
 
 \paragraph{Well-formedness.} 
 

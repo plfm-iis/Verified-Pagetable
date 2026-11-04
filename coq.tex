@@ -1,3 +1,5 @@
+\yfc{\textcolor{blue}{[Review: proof evidence] Please provide the complete checked Coq theorem statements and proof scripts, with all rely conditions, and identify their artifact revision. Explain how the exact properties discharged by PPV instantiate the Coq hypotheses, including the correspondence between the LLVM memory model and the Coq state. Distinguish a machine-checked connecting theorem from the trusted transfer of external SMT results; a theorem conditional on hypotheses does not itself establish that the concrete implementation satisfies them.}}
+
 \section{Connecting Proof}
 \label{sec:cp}
 
@@ -72,6 +74,8 @@ We discharge the two established conditions of the array axiom, update correctne
 %Hspec2: set vmid addr level pte mem = Some mem'   
 %\end{lstlisting}
 
+\yfc{\textcolor{blue}{[Review: page equivalence] Please define the updated abstract index consistently across the main-text connecting theorem, Haeq, Haneq, and set-refine. Raw address equality and equality after division by 4096/512 are different relations; the latter identifies 2 MB regions and cannot serve unchanged for 4 KB updates. State a level-dependent affected-page relation, address the interaction between the two granularities, and use the same relation in the PPV obligations and the Coq theorem.}}
+
 We define an update-correctness hypothesis, denoted \textit{Haeq}, which states that: consider all address and page level pairs (\textit{addr'}, \textit{level'}), if a given pair matches the pair consumed by a \textit{set} that updates the corresponding page table entry to \textit{pte}, resulting in a memory \textit{mem'}; invoking \textit{walk} against \textit{mem'} returns a \textit{pte'} that is identical to \textit{pte}.
 %whose associated leaf page table entry is updated by the \textit{set} to a \textit{pte} value, after the \textit{set} completes, the \textit{walk} gets a \textit{pte'} value from when using the (\textit{addr}, \textit{level}) pair against \textit{mem}.
 %\todo{define rel1.}
@@ -117,6 +121,8 @@ walk set
 \end{lstlisting}
 
 \textit{set\_refine} considers two states: \textit{st}, an abstract state that defines the flat map, and \textit{mem}, the logical memory. The proof considers that \textit{st} and \textit{mem} satisfy the refinement relation, \textit{refrel}. Now consider that both the \textit{set\_npt\_spec} and \textit{set} each update an entry in the page table of a given \textit{vmid} that associates with (\textit{addr}, \textit{level}); their operation transitions the respective machine from \textit{st} and \textit{mem} to \textit{st'} and \textit{mem'}. We verify that \textit{st'} and \textit{mem'} also satisfy \textit{refrel}.
+
+\yfc{\textcolor{blue}{[Review: read refinement] Please distinguish heap preservation from observational preservation. The displayed Hpure equates walk return values across two memories; it does not assert that walk leaves memory unchanged. State the property actually required by the abstract read and show how PPV proves it. The walk-refine conclusion should also establish agreement of the returned values, not only the post-state relation. For system-level composition, specify which other observable state components must be preserved.}}
 
 We also formulate the \textit{connecting proof} of \textit{walk\_npt\_spec} from SeKVM as a refinement, in \textit{walk\_refine}. We discharge the assumption made by the array axiom that the $walk$ function is pure (i.e., its execution does not update the underlying machine) and formulate it as the \textit{Hpure} hypothesis. Like in \textit{set\_refine}, we verify data refinement between two machines, \textit{st} and the mem, before and after the execution of the \textit{walk\_npt\_spec} and \textit{walk} function, respectively. The proof is trivial. We can infer from \textit{Hpure} that all values read out before and after the page table walk execute remain the same. %Then we can replace all values stored in \textit{mem'} with \textit{mem} in the goal.
 %making it the same form as $Hrel$, thus proving it.
