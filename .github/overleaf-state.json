@@ -1,6 +1,6 @@
 {
-  "github_source_commit": "b8a5d63b712d24043d48402b84dee927ee6d1845",
-  "overleaf_revision": "1b47cedcbe41c1406c60bca8da5ab7724b181c41",
+  "github_source_commit": "93e80819edce6396cb1f8fafc058441ba1e2e0ab",
+  "overleaf_revision": "d51721ce731a50d3b24dbb7d1cc5e426c9f2b581",
   "paper_manifest": {
     "4lvpt.jpg": {
       "mode": "100644",
@@ -58,6 +58,10 @@
       "mode": "100644",
       "oid": "4bc21b204ae23ebaf09364dec0098613d20aebec"
     },
+    "main_osdi.tex": {
+      "mode": "100644",
+      "oid": "37b864b8a9585ff5e9c233f4b0441493dfbdebd3"
+    },
     "overview-sw.tex": {
       "mode": "100644",
       "oid": "4e4eab8e3ea7f2ac10aba8dd2cade55fe8b400a3"
@@ -78,6 +82,10 @@
       "mode": "100644",
       "oid": "435d2964dd2ea9788de5dba1165225a3ec22f2b8"
     },
+    "usenix2019_v3.sty": {
+      "mode": "100644",
+      "oid": "622e8e82dab424e0379bee395181aa0a2cc51b9c"
+    },
     "workflow.jpg": {
       "mode": "100644",
       "oid": "56882b609693098252ea6ef6fa2defaab4ba35c2"
@@ -93,5 +101,5 @@
   },
   "project_id": "6870a93e72f08c2609530c3c",
   "schema": 1,
-  "verified_at_utc": "2026-11-04T02:28:11.738685+00:00"
+  "verified_at_utc": "2026-11-04T02:36:25.589591+00:00"
 }
