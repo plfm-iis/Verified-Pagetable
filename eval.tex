@@ -102,6 +102,31 @@ completed in 1,978 seconds.
 
 {\color{blue}
 \paragraph{Modular allocator verification.}
+\yfc{\textcolor{blue}{
+[Review: buddy allocator experiments and verification costs]
+The new experiments actually use a buddy allocator, rather than
+merely demonstrating that the interface could support one.
+Please update both the experimental setup and the result tables
+to identify which page-table configurations were verified with
+the SeKVM linear allocators and which with the buddy allocator.
+Report separately:
+(1) verification of the buddy allocator against the allocator
+specification;
+(2) verification of the page-table implementation against that
+interface; and
+(3) the comparison with the buddy allocator inlined.
+For each configuration, report the exact verification time and
+query count where available.
+The reported time of under one minute covers only the page-table
+verification; state the allocator verification cost separately
+and explain that it is incurred once and reused across compatible
+page-table proofs.
+Clarify whether the recursive experiment also uses this allocator
+interface and which allocator implementation it uses.
+Update the surrounding discussion to match these configurations
+and measurements, rather than presenting the new results as
+allocator-independent timings.
+}}
 We also verified fixed-depth page-table implementations against a
 modular allocator interface, supporting interchangeable SeKVM linear
 allocators and a buddy allocator.
