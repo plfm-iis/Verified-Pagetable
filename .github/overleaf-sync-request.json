@@ -1,7 +1,12 @@
 {
   "schema": 1,
   "expected_overleaf_revision": "941b403dd2bd0e2185fe03207f2b121dbd4079a5",
-  "approved_github_commit": "50d328851b838336de4568d8f16d419f7318f683",
-  "approved_paths": [],
-  "dry_run": true
+  "approved_github_commit": "1e2b98a3f0f0e3605398b3ea911f754934080ed4",
+  "approved_paths": [
+    "overview-sw.tex",
+    "semantics.tex",
+    "coq.tex",
+    "eval.tex"
+  ],
+  "dry_run": false
 }
