@@ -1,6 +1,6 @@
 {
-  "github_source_commit": "93e80819edce6396cb1f8fafc058441ba1e2e0ab",
-  "overleaf_revision": "d51721ce731a50d3b24dbb7d1cc5e426c9f2b581",
+  "github_source_commit": "9a10299be2d4b1dd91caaaf593f94d6ec20d06b6",
+  "overleaf_revision": "941b403dd2bd0e2185fe03207f2b121dbd4079a5",
   "paper_manifest": {
     "4lvpt.jpg": {
       "mode": "100644",
@@ -36,7 +36,7 @@
     },
     "eval.tex": {
       "mode": "100644",
-      "oid": "9792ad25fea626dbeccc92fe476e8224d01b1cef"
+      "oid": "60dcdf585ee08690b9b947c2a5c411f7f6d2823b"
     },
     "extended_abstract.tex": {
       "mode": "100644",
@@ -48,7 +48,7 @@
     },
     "future.tex": {
       "mode": "100644",
-      "oid": "d64bea41677a9f25d5a2e8aca8ce30fc390de4e9"
+      "oid": "fa20833eca49951039ede131b8615428d713e662"
     },
     "intro.tex": {
       "mode": "100644",
@@ -101,5 +101,5 @@
   },
   "project_id": "6870a93e72f08c2609530c3c",
   "schema": 1,
-  "verified_at_utc": "2026-11-04T02:36:25.589591+00:00"
+  "verified_at_utc": "2026-11-04T02:43:05.830719+00:00"
 }
