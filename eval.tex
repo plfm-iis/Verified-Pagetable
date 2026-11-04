@@ -79,6 +79,46 @@ These results demonstrate the practicality and performance advantage of our quan
 
 %\sw{SW: to integrate with SeKVM and Secvma, discuss how we do that. Discuss the benefits of using an SMT-based approach by comparing it against a Rocq-based one. Add performance experimental setup + evaluation results running application benchmarks on m400.}
 
+{\color{blue}
+\paragraph{Recursive page-table verification.}
+We extended PPV to verify a recursive page-table implementation.
+The key observation is that recursion follows the page-table hierarchy,
+whose maximum depth is fixed by the supported configuration.
+We can therefore unfold the recursive specification to this depth and
+express it level by level, using the same quantifier-free array encoding
+as for fixed-depth implementations.
+This lets the solver reason about memory reads and writes without
+quantifier instantiation.
+To control query size, we decompose the proof obligations by visitor
+and recursion level, and split each property into cases according to
+the execution path.
+Without this decomposition, checking the recursive contract did not
+finish within eight hours.
+With the decomposition, verification of the recursive implementation
+completed in 1,978 seconds.
+}
+
+{\color{blue}
+\paragraph{Modular allocator verification.}
+We also verified fixed-depth page-table implementations against a
+modular allocator interface, supporting interchangeable SeKVM linear
+allocators and a buddy allocator.
+The page-table specifications refer to the allocator through a small
+interface describing pool well-formedness, whether a page was allocated
+from a pool, and the next page to be allocated.
+The same page-table specifications can thus be reused across these
+allocator implementations, while allocator code is excluded from
+the page-table verification queries.
+With the buddy allocator inlined, verification of the four-level
+page-table implementation required over a thousand queries and several
+hours, even after splitting queries into cases.
+Against the abstract allocator interface, page-table verification
+completed in under a minute.
+This time excludes verification of the allocator itself:
+the buddy allocator is checked separately against its specification,
+instead of being reverified within every page-table query.
+}
+
 \subsection{Bug Identification}
 
 During the verification of paging functions, PPV successfully uncovered three bugs. These bugs were not present in the original SeKVM source code; they were introduced unintentionally during the extraction of the paging functions into independent C files for evaluation. This underscores the inherent difficulties in designing functionally correct paging functions that incorporate complex operations—such as bit-level arithmetic—and thus demonstrates the critical need for an automated verification tool.
