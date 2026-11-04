@@ -1,0 +1,260 @@
+\section{Connecting Proof}
+\label{sec:cp}
+
+%We demonstrate how our framework can be seamlessly integrated with the Spoq verification framework. Spoq generates a low-level specification from C code, which is then combined with a handwritten high-level specification to establish a refinement relation. Proving that this refinement relation holds after the execution of a paging function requires a non-negligible amount of manual effort. To integrate this into our framework, we instead use an SMT solver to verify that the target functions satisfy the conditions of update correctness and non-interference. We then construct a \textit{connecting proof} demonstrating that any function satisfying these conditions inherently refines to the high-level specification. Therefore, our push-button verification framework serves as a component in Spoq and integrates into its end-to-end verification workflow.
+
+
+%To make reasoning with c code easier, we had used Spoq, which generates a low spec (directly translated from llvm IR), combined with a handwritten high spec (simplified logical abstraction); we have written a proof between a refinement relation between the low spec and high spec. The problem with this approach is that it takes a non-negligible  amount of effort to just prove refinement of one function, and the refinement proof needs to be rewritten if there is any change to the c code. We propose a new way to proof refinement that can avoid the hassle of needing to rewrite entire proofs. We take advantage of proven properties of the c code using smt solver, namely array theory, to state a new refinement proof, which states: \textit{any code that satisfies certain properties has a refinement relation to the high spec}.
+
+
+We describe the construction and verification of the \textit{connecting proof} for SeKVM’s~\cite{li:ieeesp2021} paging functions. As outlined in \autoref{sec:impl}, this proof bridges the implementation verified by the SMT-based push-button framework and the abstract specifications defined in a concrete verification framework. We extract the abstract specifications for paging functions in Coq from the SeKVM artifact~\cite{spoq-artifact}, which are defined as follows for the \textit{walk\_npt} and \textit{set\_npt} primitives that respectively provide walk and map functionality.
+
+\begin{lstlisting}[style=coq, escapeinside={(*@}{@*)}]
+Definition walk_npt (v_addr: Z) (npt: Stage2PT) : Z :=
+  let v_gfn := (v_addr / 4096) in
+  let v_gfn512 := (v_gfn / 512) in
+  match (((npt.(e_lv2pt)) @ v_gfn512)) with
+    | (Some v_pte) => v_pte
+    | None =>
+      match (((npt.(e_lv3pt)) @ gfn)) with
+      | (Some v_pte) => v_pte
+      | None =>
+      end
+    end.
+
+Definition walk_npt_spec (v_vmid: Z) (v_addr: Z)
+(st: RData) : (option (Z * RData)) :=
+  let npt := (((st.(shared)).(e_s2pts)) @ v_vmid) in
+  (Some ((walk_npt v_addr npt), st)).
+
+Definition set_npt (v_addr: Z) (v_level: Z) (v_pte: Z)
+(npt: Stage2PT) : (option Stage2PT) :=
+  let v_gfn := (v_addr / 4096) in
+  let v_gfn512 := (v_gfn / 512) in
+  if (v_level =? 2)
+  then (
+    (Some (npt.(e_lv2pt) :< 
+    ((npt.(e_lv2pt)) @@ v_gfn512 == (Some (v_pte))))))
+  else (
+    rely ((((npt.(e\_lv2pt)) @ v\_gfn512) = None));
+    (Some (npt.(e_lv3pt) :< 
+    ((npt.(e_lv3pt)) @@ v_gfn == (Some (v_pte)))))).
+
+
+Definition set_npt_spec (v_vmid: Z) (v_addr: Z)
+(v_level: Z) (v_pte: Z) (st: RData) : (option RData) :=
+  let npt := (((st.(shared)).(e_s2pts)) @ v_vmid) in
+  when npt' == ((set_npt v_addr v_level v_pte npt));
+  (Some (st.(shared).(e_s2pts) :< (((st.(shared)).(e_s2pts)) @@ v_vmid == npt'))).
+  
+\end{lstlisting}
+%remove the orred bit in set_npt for simplicity
+%(Some (npt.[e_lv2pt] :< ((npt.(e_lv2pt)) # v_gfn512 == (Some (v_pte |' 1 << 55))))))
+%(Some (npt.[e_lv3pt] :< ((npt.(e_lv3pt)) # v_gfn == (Some (v_pte |' 1 << 56)))))).
+
+The verified SeKVM hypervisor core provides map, unmap, and walk functions that manage Arm's nested page tables at 2MB and 4KB granularity. SeKVM's proofs were reasoned over an abstract machine state, \textit{st}, of type \textit{RData}, which comprises two abstract page tables, \textit{e\_lv2pt} and \textit{e\_lv3pt}, modeled as flat arrays, for 2MB and 4KB mappings. SeKVM ensures a one-to-one guest page to host page mapping, such that for a given guest page backed by a 2MB page, it is not backed by a 4KB page, and vice versa. The original specification encodes rely conditions that specify mutual exclusivity, which we also consider in the \textit{connecting proofs} but omit in the paper to simplify presentation. On the other hand, \textit{walk\_npt\_spec} returns the pte value stored in the VM \textit{v\_vmid}'s page table array corresponding to the input address \textit{v\_addr}. The \textit{set\_npt\_spec} writes an input \textit{v\_pte} value to the VM \textit{v\_vmid}'s page table array corresponding to the input address \textit{v\_addr}, and returns an updated machine state.
+
+\paragraph{\textit{Connecting proof for SeKVM}} We aim to show that, for any paging function implementation, \textit{walk} and \textit{set} (respectively corresponding to page table walk and map/unmap function), that satisfies the array-axiom conditions, it refines the abstract specification \textit{walk\_npt\_spec} and \textit{set\_npt\_spec}, from SeKVM.
+The definitions of \textit{walk} and \textit{set} in Coq, which share the same signature as \textit{walk\_npt\_spec} and \textit{set\_npt\_spec}, except the last argument, are given below. We describe the behavior of \textit{walk} and \textit{set} over a logical memory, \emph{mem}, which serves as a key-value store that maps a given input address to a value. We intentionally relax the specifications here, making them sufficiently general to capture arbitrary concrete implementations. The function \emph{walk} reads from \emph{mem}; whereas, the \emph{set} function updates \emph{mem}.
+
+%\todo{justify why we use the Option type in Coq, which represents valid states, unlike None.}
+
+\begin{lstlisting}[style=coq]
+Definition walk (v_vmid: Z) (v_addr: Z) (X: mem) : (option (Z * X))
+Definition set (v_vmid: Z) (v_addr: Z) (v_level: Z) (v_pte: Z) (X: mem) : (option X)
+\end{lstlisting}
+
+We discharge the two established conditions of the array axiom, update correctness and non-interference, and the array axiom's assumptions as hypotheses for the \textit{connecting proof}.
+
+%For the two array-theory conditions, we consider the \textit{set} makes the following updates from \textit{mem} to \textit{mem'}, by updating the page table leaf entry associated with the input \textit{addr} and \textit{level} to a \textit{pte} value.
+
+%\begin{lstlisting}[style=coq]
+%Hspec2: set vmid addr level pte mem = Some mem'   
+%\end{lstlisting}
+
+We define an update-correctness hypothesis, denoted \textit{Haeq}, which states that: consider all address and page level pairs (\textit{addr'}, \textit{level'}), if a given pair matches the pair consumed by a \textit{set} that updates the corresponding page table entry to \textit{pte}, resulting in a memory \textit{mem'}; invoking \textit{walk} against \textit{mem'} returns a \textit{pte'} that is identical to \textit{pte}.
+%whose associated leaf page table entry is updated by the \textit{set} to a \textit{pte} value, after the \textit{set} completes, the \textit{walk} gets a \textit{pte'} value from when using the (\textit{addr}, \textit{level}) pair against \textit{mem}.
+%\todo{define rel1.}
+
+%\begin{lstlisting}[style=coq, escapeinside={(*@}{@*)}]
+%Haeq: forall addr',
+%  (*@\textcolor{red}{(* the address matches *)}@*)
+%  (*@\textcolor{red}{addr' / 4096 / 512 = addr / 4096 / 512}@*) ->
+%  (*@\textcolor{red}{walk vmid addr' mem'}@*) = Some (pte', mem'') /\
+%  (*@\textcolor{red}{pte' = pte}@*)
+%\end{lstlisting}
+
+Under the same premise, we define the non-interference hypothesis, \textit{Haneq}, as follows. Here, the helper primitive \textit{fst\_option} retrieves the first value from the return value pair of \textit{walk}. \textit{Haneq} states that, after the \textit{set} function updates the page table entry associated with the (\textit{addr}, \textit{level}) pair, reading a different entry (specified by a (\textit{addr'}, \textit{level'}) pair that differs from (\textit{addr}, \textit{level})) via the \textit{walk} function before and after the \textit{set} executes, returns the same value.
+
+%\begin{lstlisting}[style=coq, escapeinside={(*@}{@*)}]
+%Haneq: forall addr' level',
+%  (*@\textcolor{red}{(* the address differs *)}@*)
+%  (*@\textcolor{red}{addr' / 4096 / 512 <> addr / 4096 / 512}@*) ->
+%  fst_option ((*@\textcolor{red}{walk vmid addr' mem'}@*)) = 
+%  fst_option ((*@\textcolor{red}{walk vmid addr' mem}@*))
+%\end{lstlisting}
+
+Finally, we embed the distilled hypotheses from the array-theory proofs, as mentioned above, to construct the \textit{connecting proofs} for SeKVM's abstract \textit{set\_npt\_spec} specification, which is a refinement from a generalized \textit{map}. 
+
+\begin{lstlisting}[style=coq, escapeinside={(*@}{@*)}]
+Theorem set_refine :
+forall vmid addr level pte pte' mem mem' mem'' st st'
+walk set
+  (* hypotheses *)
+  (Haneq: forall addr' level',
+    addr' / 4096 / 512 <> addr / 4096 / 512 ->
+  fst_option (walk vmid addr' mem') = 
+  fst_option (walk vmid addr' mem)
+  (Haeq: forall addr' level',
+    (addr' / 4096 / 512 = addr / 4096 / 512 ->
+    walk vmid addr' mem' = Some (pte', mem'') /\
+    pte' = pte),
+  (* proof goal *)
+   (refrel vmid st mem) ->
+   (set_npt_spec vmid addr level pte st = Some st') ->
+   (set vmid addr level pte mem = Some mem') ->
+   refrel vmid st' mem'.
+\end{lstlisting}
+
+\textit{set\_refine} considers two states: \textit{st}, an abstract state that defines the flat map, and \textit{mem}, the logical memory. The proof considers that \textit{st} and \textit{mem} satisfy the refinement relation, \textit{refrel}. Now consider that both the \textit{set\_npt\_spec} and \textit{set} each update an entry in the page table of a given \textit{vmid} that associates with (\textit{addr}, \textit{level}); their operation transitions the respective machine from \textit{st} and \textit{mem} to \textit{st'} and \textit{mem'}. We verify that \textit{st'} and \textit{mem'} also satisfy \textit{refrel}.
+
+We also formulate the \textit{connecting proof} of \textit{walk\_npt\_spec} from SeKVM as a refinement, in \textit{walk\_refine}. We discharge the assumption made by the array axiom that the $walk$ function is pure (i.e., its execution does not update the underlying machine) and formulate it as the \textit{Hpure} hypothesis. Like in \textit{set\_refine}, we verify data refinement between two machines, \textit{st} and the mem, before and after the execution of the \textit{walk\_npt\_spec} and \textit{walk} function, respectively. The proof is trivial. We can infer from \textit{Hpure} that all values read out before and after the page table walk execute remain the same. %Then we can replace all values stored in \textit{mem'} with \textit{mem} in the goal.
+%making it the same form as $Hrel$, thus proving it.
+
+\begin{lstlisting}[style=coq, escapeinside={(*@}{@*)}]
+Hpure: forall addr' level',
+  fst_option (walk vmid addr' mem') = 
+  fst_option (walk vmid addr' mem),
+\end{lstlisting}
+
+\begin{lstlisting}[style=coq, escapeinside={(*@}{@*)}]
+Theorem walk_refine:
+forall vmid addr level mem mem' st st' v1 v2 walk
+  (Hpure: forall addr' level',
+      fst_option (walk vmid addr' mem') = 
+      fst_option (walk vmid addr' mem),
+  (* goal *)
+  (refrel vmid st walk mem) ->
+  (walk_npt_spec vmid addr st = Some (v1, st')) ->
+  (walk vmid addr level mem = Some (v2, mem')) ->
+  refrel vmid st' walk mem'.
+\end{lstlisting}
+
+Both \textit{set\_refine} and \textit{walk\_refine} use the refinement relation \textit{refrel}, which is stated as follows. \textit{refrel} considers all (\textit{addr}, \textit{level}) pairs, and shows that the pte value retrieved by the \textit{walk} function from a given \textit{mem} is the same as the pte value retrieved from the flat arrays defined in the abstract machine \textit{st}. Note that here, we use the \textit{st} to infer the two flat arrays \textit{e\_lv2pt} and \textit{e\_lv3pt} used by the abstract specification.
+
+%\todo{is\_addr is undefined.}
+
+\begin{lstlisting}[style=coq, escapeinside={(*@}{@*)}]
+Definition refrel (vmid : Z) (st : RData)
+(mem : X): Prop :=
+  forall addr,
+    let hnpt := st.(shared).(e_s2pts) @ vmid in
+    let r1 := walk vmid addr mem in
+    let r2 :=
+      (match npt.(e_lv2pt) @ (addr / 4096 / 512) with
+      | (Some v_pte) => Some v_pte
+      | None =>
+        match npt.(e_lv3pt) @ (addr / 4096) with
+        | (Some v_pte) => Some v_pte
+        | None => None
+        end
+      end) in
+    match r1, r2 with
+    | Some (v1, _), Some v2 => v1 = v2
+    | None, None => True
+    | _, _ => False
+    end
+\end{lstlisting}
+
+Crucially, our connecting proofs offer substantial reusability. They only need to be updated if the abstract specifications (e.g., \textit{walk\_npt\_spec} and \textit{set\_npt\_spec}) change. In standard verification paradigms, high-level specifications serve as the stable ground truth, while the underlying source code is frequently modified or debugged. Because our SMT-based framework already absorbs the verification burden of the concrete code, the connecting proofs remain decoupled from the implementation details. Therefore, altering the C paging functions does not require rewriting the connecting proofs.
+%\todo{array theory discharges: (assumption) the set/walk are pure functions, expose two conditions.}
+
+\begin{comment}
+Since we do not have a direct access to memory used by any read/write operation, we defined the refinement relation between the memory used by read/write operation and high state by passing in a getter argument in our refinement relation, using it to "walk" the memory and establish a binary relation between the value returned by walking the memory with getter and the value stored in high state.
+
+Since the value returned by read might not be strictly equal to the value stored by write, and the same goes for the high spec. We construct the binary relation by taking in two other binary relations (ref1 and ref2), construct the actual binary relation between the value returned by getter(v1) and the value stored in high state(v2) like this
+
+
+%Definition PT := { pool: ZMap.t Z; next: Z }.
+
+\[
+\texttt{\(\exists\) v, ref1 v1 v \(\wedge\) ref2 v2 v}
+\]
+
+
+% =========================================================
+% archive version 2
+% =========================================================
+%We also introduce a custom equality operator (\$= and \$$\neq$), which compares two address level pair by comparing only specific bits of address instructed by the level provided. This is to mirror the comparison done in the array theory property in smt.
+
+Mirroring the address comparison done above, we introduce a hypothesis:
+\begin{flushleft}
+\texttt{
+Haddr\_dec: \(\forall\) addr' level' addr level, \\
+\hspace{1em} (addr' = addr \(\wedge\) level' = level) \vee \\
+\hspace{1em} (addr' / (1 << 30) <> addr / (1 << 30)) \\
+\end{flushleft}
+}
+
+Now we can construct the write refinement proof like this: for any read and write operation, if they satisfy array theory, then there exists a refinement relationship between the write operation and the high spec. The array theory requirement takes form as two hypotheses:
+
+\begin{flushleft}
+\texttt{
+Haneq: \(\forall\) addr' level', \\
+\hspace{1em} (addr', level') \$$\neq$ (addr, level) -> \\
+\hspace{2em} read vmid addr' level' mem' = \\
+\hspace{2em} read vmid addr' level' mem
+}
+\end{flushleft}
+\begin{flushleft}
+\texttt{
+Haeq: \(\forall\) addr' level', \\
+\hspace{1em} (addr', level') \$= (addr, level) -> \\
+\hspace{2em} read vmid addr' level' mem' \\
+\hspace{3em} = Some (pte', mem'') \\
+\hspace{2em} \(\wedge\) rel pte' pte
+}
+\end{flushleft}
+With these, we can now proceed with the refinement proof on the high spec of the write operation as normal, which only takes about 100 LoC, much smaller than the original coq proof (over 3000 LoC).
+
+Using the same techniques, we also prove a refinement of the read operation. This time with a hypothesis like this:
+
+\begin{flushleft}
+\texttt{
+\(\forall\) v a l, read v a l mem = read v a l mem'
+}
+\end{flushleft}
+In the read operation refinement proof, in addition to the proof goal of refinement, we add an extra proof goal that states that the value returned by read and the value stored in high state satisfy the binary relation defined above. 
+
+% =========================================================
+% archive version 1
+% =========================================================
+
+% To make reasoning with c code easier, we had used Spoq, which generates a low spec (directly translated from llvm IR), combined with a handwritten high spec (simplified logical abstraction); we have written a proof between a refinement relation between the low spec and high spec. The problem with this approach is that it takes a non-negligible  amount of effort to just prove refinement of one function, and the refinement proof needs to be rewritten if there is any change to the c code. We propose a new way to proof refinement that can avoid the hassle of needing to rewrite entire proofs. We take advantage of proven properties of the c code using smt solver, namely array theory, to state a new refinement proof, which states: \textit{any code that satisfies certain properties has a refinement relation to the high spec}.
+
+% We first define what low state is. It is simply a record that contains a single map, which uses two integers (address and level) as index with a custom equality operator.
+
+% Next we need to define post low state, and here is where we ran into a problem. Since we don't have an explicit implementation of low spec, we can't obtain post low state directly. instead, we constrain post low state by stating what it would be like in relation to pre low state if the function operating on it satisfies array theory. This takes the form of two hypotheses:
+% (\$<> and \$= correspond to the custom equality operator mentioned above)
+% \begin{verbatim}
+% Haneq :
+%   forall addr' level',
+%     (addr', level') $<> (addr, level) ->
+%     lst'.(table) @ (addr', level') =
+%     lst.(table) @ (addr', level').
+% \end{verbatim}
+% \begin{verbatim}
+% Haeq: forall addr' level',
+%   (addr', level') $= (addr, level) -> 
+%   lst'.(table) @ (addr', level') = Some pte.
+% \end{verbatim}
+% With these, we can now proceed with the refinement proof on the high spec of the setter function as normal, which only takes about 140 LoC, much smaller than the original coq proof (over 3000 LoC).
+
+% Using the same techniques, we also prove a refinement of the getter function. This time the post low state is constrained by this hypothesis:
+% \begin{verbatim}
+% Haeq: forall addr level,
+%   lst'.(table) @ (addr, level) =
+%   lst.(table) @ (addr, level)
+% \end{verbatim}
+% In the getter refinement proof, in addition to the proof goal of refinement, we add an extra proof goal that states that the value returned by the getter high spec is equivalent to the value stored in post low state. 
+\end{comment}

@@ -1,0 +1,217 @@
+\documentclass[sigplan,nonacm,10pt]{acmart}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\pagestyle{plain}
+
+\usepackage{times}
+\usepackage{extpfeil}
+\usepackage{xcolor}
+\usepackage{minted}
+\usepackage{listings}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{enumitem}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\usepackage{booktabs}
+\usepackage{filecontents}
+\usepackage{graphicx}
+\usepackage{comment}
+
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{inconsolata}
+\usepackage{tikz}
+
+\usepackage{tcolorbox}
+\usepackage{amsthm}
+\newtheorem{Property}{Property}
+\newcommand{\codessmall}[1]{{\scriptsize\texttt{\textcolor{mygray}{#1}}}}
+
+\newcommand{\ppv}{PPV}
+
+%%%%%%%% code packages %%%%%%%%
+
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{tikz}
+\usetikzlibrary{arrows, arrows.meta, automata, positioning, decorations.pathmorphing, shadows, shapes}
+\newcommand{\tkfig}[1]{\raisebox{-.5 ex}{\tikz{#1}}}
+\usepackage{xypic} % forward simulation diagram
+\usepackage[scaled]{beramono}
+\usepackage[T1]{fontenc}
+
+\definecolor{myblue}{HTML}{3A849E}
+%\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{myorange}{HTML}{B25A00}
+\definecolor{mygreen}{HTML}{467E7E}
+\definecolor{mygray}{rgb}{0.4,0.4,0.4}
+\definecolor{mymauve}{HTML}{AC134D}
+\definecolor{steelblue}{rgb}{.10,.40,.85}
+
+\lstdefinestyle{customc}{
+  language=C,
+  basicstyle=\linespread{0.9}\ttfamily\footnotesize,
+  breakatwhitespace=false,
+  breaklines=true,   
+  keywordstyle=\bfseries\color{myblue!90},%
+  commentstyle=\itshape\color{mygreen},
+  stringstyle=\color{orange},
+  emph = {add0, add1, add2, add3, map_npt, map_page_wrong, map_page,},
+  emphstyle=\color{mymauve!70},
+  deletekeywords={get},
+  escapeinside={<@}{@>},
+  keepspaces=true,
+  otherkeywords={64, uint, ...},     
+  tabsize=2,	        
+}
+
+\lstdefinestyle{coq}{
+  language=Octave,
+  basicstyle=\linespread{0.96}\ttfamily\footnotesize,
+  breakatwhitespace=false,       
+  breaklines=true,                
+  commentstyle=\itshape\color{mygreen},
+  keywordstyle=\bfseries\color{myblue!90},
+  stringstyle=\color{mymauve},     
+  deletekeywords={...},            
+  keepspaces=true,   
+  otherkeywords={uint, Function, Inductive, Definition, Fixpoint, Parameter, Record, then, @},     
+  deletekeywords={get, set, pi, log, end, do},
+  morecomment=[s]{(*}{*)},
+  emph = {add_spec, option, fst, snd, Some, None, let, match, in, with, nil, exists, forall, and, end, list},
+  emphstyle=\color{mymauve!70},
+  tabsize=2,                    
+  escapeinside={<@}{@>},
+  showstringspaces=false,
+  % --- THE CLEAN FIX FOR PRIMES ---
+  deletestring=[b]',               % Remove single quotes from string parsing
+  deletestring=[b]",               % Remove double quotes from string parsing
+  alsoletter={', "},               % Treat ' and " as normal letters so they don't break code
+}
+
+%%%%%%%%
+
+\definecolor{codegray}{gray}{0.5}
+%%
+%% \BibTeX command to typeset BibTeX logo in the docs
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    Bib\TeX}}}
+\newcommand{\ivan}[1]{\textcolor{blue}{\ifmmode \text{[Ivan: #1]}\else #1 \fi}}
+\newcommand{\yfc}[1]{\textcolor{black}{\ifmmode \text{[YF: #1]}\else #1 \fi}}
+\newcommand{\sw}[1]{\textcolor{brown}{\ifmmode \text{[SW: #1]}\else #1\fi}}
+\newcommand{\icode}[1]{\texttt{#1}}
+\newcommand\todo[1]{\textcolor{red}{TODO: #1}}
+\newcommand{\code}[1]{\text{\inconsolata{#1}}}
+\newcommand{\true}[0]{\texttt{true}}
+
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\settopmatter{printfolios=true}
+
+%\captionsetup[table]{font=footnotesize}
+
+\begin{document}
+
+\date{}
+
+\title{Push-Button Verification of Paging Functions in Operating Systems}
+
+\author{{\rm paper 2786}} % end author
+
+\maketitle
+
+\section*{Motivation}
+Modern operating systems rely on paging hardware to virtualize memory and enforce isolation between protection domains. The kernel must construct and continuously maintain hierarchical, in-memory page tables. The layout of these structures is strictly constrained by hardware-defined bit encodings, and their manipulation involves subtle pointer and arithmetic operations. Because even minor bugs in this low-level code can compromise the memory safety of the entire system, obtaining strong formal guarantees about its correctness is essential. At the same time, the complexity of page-table structures and their low-level manipulation makes such formal verification technically difficult. Prior work~\cite{brun23hotos} reports that the verification of low-level system code managing page tables comprises the lion's share of the proof efforts.
+
+\section*{Limitations of Current Approaches}
+Direct verification of the page table management codebase is exceedingly difficult due to the complexity of multi-level tree manipulations. Therefore, prior works~\cite{li:ieeesp2021,brun23hotos,li:sekvm:usenix21} employ a modular proof strategy that first establishes the correctness of the fundamental core paging functions: \texttt{map}, \texttt{unmap}, and \texttt{resolve} (i.e., \texttt{walk}). These functions manage, read, and write to the concrete in-memory multi-level page tables, serving as a foundation for building high-level, complex logic for memory management. Past works~\cite{li:ieeesp2021,brun23hotos,li:sekvm:usenix21} express the correctness of the core paging functions as a \textit{structural lifting property}: the concrete multi-level page tables behave exactly like an abstract flat array mapping addresses to page table entry values. %This property ensures that the low-level implementation correctly implements the high-level memory-mapping contract.
+The correctness of paging functions is established by showing that the concrete implementation satisfies an abstract specification defined over a flat array. This strategy simplifies verification reasoning for higher-level features, such as copy-on-write or fine-grained access controls, that use paging functions. They can then be reasoned over the abstract specifications, substantially reducing proof complexity.
+
+\emph{Refinement proofs} are one common way to establish the structural lifting property. They show that the concrete code conforms to an abstract specification by proving that every concrete step corresponds to an abstract step that preserves a relation between the two states. This requires reasoning of the form “for all concrete states, there exists a matching abstract state,” which introduces alternating universal–existential quantifiers. Quantifiers of this form are a well-known bottleneck for automated SMT solvers: they can significantly degrade solver performance, cause proof searches to diverge, or lead to solver failure. Consequently, fully automating refinement proofs is difficult in practice.
+
+To cope with these challenges, prior work~\cite{brun23hotos,atmosphere2025sosp,Brun2022VerifiedPaging} that verifies paging functions using SMT-based tools such as Verus~\cite{verus} must insert carefully placed \texttt{assert} statements or hand-crafted \emph{triggers} to guide quantifier instantiation. Triggers are syntactic patterns attached to quantified formulas that indicate when the solver may instantiate a quantifier. Although indispensable for controlling SMT reasoning, they are fragile: poorly chosen triggers may cause the solver to miss necessary instantiations, generate irrelevant ones, or fall into nonterminating instantiation loops. When utilized in refinement proofs, alternating quantifiers force the solver to orchestrate multiple hierarchical layers of instantiation. Even small changes to the specification or to the memory model can invalidate a previously working trigger strategy. As a result, extensive manual tuning is required, and verification may still fail due to inherent limitations of the solver~\cite {Brun2022VerifiedPaging}.
+
+\section*{Key Insights or Ideas}
+This work explores a new push-button approach for proving the structural lifting of page tables. As discussed, the main obstacle is that structural lifting is traditionally expressed through refinement proofs, which introduce quantifiers that SMT solvers handle poorly. Our approach instead captures the core lifting idea in a \emph{quantifier-free} encoding: we verify that concrete paging functions satisfy the \emph{array axiom}, which characterize arrays in SMT logic. The array axiom states that a select-after-store returns the stored value at the updated index and preserves all other indices, i.e.,
+\[
+\text{Select}(\text{Store}(A,i,v), j) =
+\begin{cases}
+v & \text{if } i = j,\\
+\text{Select}(A,j) & \text{otherwise}.
+\end{cases}
+\]
+We demonstrate that the operations performed by paging functions managing multi-level page tables satisfy this axiom. This verification allows us to abstract the complex operations, interpreting them as updates to a simplified abstract map. This design avoids the quantifier instantiation problems that burden refinement proofs, thereby significantly improving solver robustness and performance.
+By eliminating the substantial reasoning overhead inherent to refinement-based approaches, our method makes verification more efficient and easier to adapt to diverse page-table implementations.
+
+\subsection*{Verification Framework}
+To implement this, we introduce the Push-button Paging-Function Verification (PPV) framework. \autoref{fig:workflow} presents the verification workflow of \ppv{}, operates in the following stages. To verify a given paging function implementation, users provide the C source code along with specifications written in SMT-LIB~\cite{barrett2010smt}, including the well-formedness condition and template formulas for the array-theory two conditions.
+
+\begin{figure}[h]
+\centering
+\includegraphics*[width=\columnwidth]{workflow.pdf}
+\caption{\ppv{} Workflow.}
+\label{fig:workflow}
+\end{figure}
+
+First, the paging functions are compiled into LLVM IR, which preserves low-level memory semantics such as pointer arithmetic, loads, and stores. LLVM IR is used as the verification substrate because its operational semantics are precisely defined and amenable to symbolic reasoning. A custom symbolic executor generates symbolic states at return positions and constructs the formulas for the update correctness and non-interference conditions of the array axiom. These formulas are then passed to SMT solvers; if both are shown to be unsatisfiable, the structural lifting property is established.
+
+\subsection*{Integration with Full-System Verification Frameworks}
+We integrate the PPV framework into Spoq~\cite{spoq}, an automated framework for full-system verification in Coq. To systematically replace these manually constructed page-table proofs in Spoq, we develop a connecting proof that establishes a correspondence between PPV’s verification results and Spoq's abstract page-table specification. This connection enables Spoq to rely on the abstract specification as a sound foundation for subsequent reasoning.
+%This proof can be reused as long as Spoq’s page-table specification remains unchanged.
+%Like prior work, Spoq relies on manually constructed refinement proofs for page-table operations, requiring over 2,500 lines of Coq tactic scripts to verify SeKVM’s low-level paging functions. 
+
+\section*{Overview of Results}
+We evaluated the PPV framework to assess its performance, bug-finding effectiveness, and practical applicability in real-world systems. Overall, our evaluation demonstrates that our quantifier-free approach significantly reduces the manual proof burden required by existing methods. %By successfully uncovering real-world bugs, verifying practical page-table implementations,
+%PPV demonstrates its practicality in delivering rigorous, push-button verification of operating systems.
+PPV enables push-button replacement of structural lifting proofs. This flexibility lets system developers use alternative designs tailored to specific performance and feature needs, addressing a key gap in automated system verification frameworks for proving core low-level systems that manage page tables.
+
+\subsection*{Performance and Improvement over Refinement Proofs}
+We adapted the paging functions from the SeKVM hypervisor artifact~\cite {sekvm-artifact-sosp21}, which manages multi-level page tables for Arm with dynamic page table allocation.
+%The original implementations in SeKVM support translating input addresses with 3- and 4-level page tables using hybrid 2 MB and 4 KB mappings on Arm-based environments.
+We updated the implementations and verified two sets of paging function implementations that support (1) a fixed single and (2) hybrid mapping sizes. The result is shown in \autoref{tbl:results}. Noted that we compared our array-axiom encoding against traditional quantifier-based refinement across single-size and hybrid-size page table configurations. While refinement proofs timed out on a 2MB 3-level single-size implementation, our quantifier-free approach successfully verified the same 3-level code in under 10 seconds. We do not report quantifier-based results for 4-level and hybrid mapping configurations because all such verification attempts resulted in SMT solver timeouts. Even the most complex hybrid configuration (1GB+2MB+4KB-3lvl\_smt) was verified successfully with quantifier-free encoding, requiring only 52 to 120 lines of specification overhead compared to thousands of lines in traditional approaches.
+
+\begin{table}
+\centering
+\caption{Evaluation of five SeKVM-like page table implementations. Loc: Lines of C code. Spec: Lines of specification. Time: Verification time in seconds; N/A indicates the solver did not terminate within 24 hours.}
+\label{tbl:results}
+{\footnotesize
+ \begin{tabular}{cccr}
+ \toprule
+ \footnotesize
+ \textbf{Test} & \textbf{LoC (C code)} & \textbf{Spec} & \textbf{Time(s)} \\
+ \midrule
+ 1GB-2lvl\_quantifier & 98 & 78 & 0.215\\
+ \midrule
+ 2MB-3lvl\_quantifier & 131 & 96 & N/A\\
+ 
+ \midrule
+ 1GB-2lvl\_smt & 98 & 52 & 0.221 \\
+ \midrule
+ 2MB-3lvl\_smt & 131 & 84 & 9.994 \\
+ \midrule
+ 4KB-4lvl\_smt & 176 & 120 & 174.659\\
+ \midrule
+ 2MB+4KB-3lvl\_smt & 172 & 99 & 1944.671 \\
+  \midrule
+ 1GB+2MB+4KB-3lvl\_smt & 204 & 105 & 11343.450 \\
+ \bottomrule
+ \end{tabular}}
+\end{table}
+
+\subsection*{Bug Identification}
+During evaluation, the automated framework successfully uncovered three subtle bugs inadvertently introduced during the extraction of the hypervisor code: 
+(1) an incorrect bitmask that expanded the PGD table index, 
+(2) a physical address (pa) truncation flaw in the pa to virtual address translation primitive that caused a memory aliasing error, and 
+(3) unconstrained PTE inputs that caused the traversal logic to erroneously walk unallocated page levels. A detailed discussion of these bugs is provided in Section~5.2 of our main draft.
+In all cases, the SMT solver pinpointed the violation and generated actionable counterexamples in mere seconds.
+
+\subsection*{Paging Function Verification in Practice}
+To demonstrate the applicability of our approach, we ported the verified 1GB+2MB+4KB three-level paging implementation generated by PPV to SECvma~\cite{secvma2024acsac}, a virtualization-based security architecture for Linux built on top of the SeKVM~\cite{li:ieeesp2021} hypervisor to protect kernel integrity. We compared the performance of the original unverified implementation and the verified implementation across diverse benchmarks. The results show that PPV can verify practical page-table implementations to deliver correctness guarantees while preserving the performance of unverified systems.
+%which introducing negligible runtime overhead, demonstrating that rigorous verification does not compromise performance.
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{reference}
+
+
+\end{document}

@@ -1,0 +1,48 @@
+\section{LLVM Semantics and Symbolic Execution}
+\label{sec:semantics}
+
+In our symbolic executor, an LLVM program state consists of a register map, a symbolic heap, and a path condition. Execution proceeds by interpreting LLVM IR instructions into SMT expressions. For most instructions (load, store, arithmetic, conditionals, branch, and \texttt{phi}), we use standard operational semantics over QF\_AUFNIA (the theory of quantifier-free arrays, uninterpreted functions, and non-linear integer arithmetic).
+
+%\todo{sync with implementation: H only defines physical memory.}
+
+A distinguishing feature of our design is that we encode all \emph{bitwise} and \emph{pointer-manipulation} instructions using \emph{integer arithmetic} rather than SMT bit-vector theories. This avoids bit-blasting and keeps constraint solving within a fragment where SMT solvers perform significantly better. Several common LLVM idioms arising in paging functions are handled with specialized encodings. For example:
+
+\begin{enumerate}
+  \item \textbf{Bit masking using \texttt{and}.}  
+  Expressions of the form below are compiled into a short sequence of integer shifts and divisions that extract the middle $q$ bits, rather than expanding into per-bit tests.
+  \[
+      x \,\&\, (0^p 1^q 0^r)
+  \]
+ %\sw{SW: shall we explain why this is representative?}
+
+  \item \textbf{Shifts via multiplication and division.}  
+  The left shift 
+  \[
+      x \ll k
+  \]
+  is translated as 
+  \[
+      (x \cdot 2^{k}) \bmod 2^{64},
+  \]
+  and the logical right shift uses integer division by $2^k$.  
+  When $k$ is constant, the term $2^k$ is precomputed, eliminating symbolic exponentiation.
+
+  \item \textbf{Non-overlapping \texttt{or}.}  
+  When $d_1$ and $d_2$ manipulate disjoint bit regions (a common pattern in address construction),
+  \[
+      d_1 \,|\, d_2
+  \]
+  is simplified to
+  \[
+      d_1 + d_2,
+  \]
+  entirely avoiding bit-level reasoning.
+\end{enumerate}
+
+Two additional design choices contribute to the efficiency of our symbolic executor.
+First, we model only the subset of LLVM instructions that appear in paging implementations, which keeps the semantics lightweight and avoids the overhead of a full LLVM formalization. Second, all 64-bit quantities (including pointers) are treated as mathematical integers, with wrap-around enforced explicitly by $\bmod 2^{64}$. 
+This eliminates the bit-blasting normally associated with SMT bit-vector reasoning.
+These choices match the structural invariants of paging code, where masks, shifts, and address constructions follow regular patterns that our integer encodings capture naturally.
+
+These encodings significantly reduce the size of generated constraints and improve solver performance on paging-related code.
+The complete operational semantics and full integer-arithmetic encodings can be found in~\autoref{sec:se}.

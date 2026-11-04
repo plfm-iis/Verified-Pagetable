@@ -1,0 +1,638 @@
+\section{Overview}
+\label{sec:overview}
+
+In this section, we outline our verification strategy and present a concrete case study to demonstrate its application. 
+The core of our approach is a quantifier-free specification based on the array axiom. Our objective is to verify that paging functions satisfy the structural lifting property, i.e., that they behave as if operating on an array.
+
+As discussed earlier, to simplify verification, past formally verified systems employ a modular approach: first, abstract the multi-level page table into a flat array, then reason over the logical array representation. For the former step, a structural-lifting proof is performed against the fundamental paging functions \textit{map}, \textit{unmap}, and \textit{resolve}, which operate on concrete in-memory page table structures. These functions generally implement the interface listed as follows: they take an input as an identifier (\textit{id}) (e.g., a process or VM ID) to specify the targeted page table, an input address (\textit{addr}), and a PTE (\textit{pte}) value that \textit{addr} maps to in the page table.
+
+In our model, all three inputs \textit{id}, \textit{addr}, and \textit{pte} are treated as unbounded integers. The \textit{resolve} function returns the page table entry value that the address \textit{addr} maps to in \textit{id}'s page table.
+
+%\begin{lstlisting}[style=customc]
+%map(id, addr, pte);
+%unmap(id, addr);
+%resolve(id, addr);
+%\end{lstlisting}
+
+\begin{center}
+\begin{minipage}{0.19\textwidth}
+\begin{lstlisting}[style=customc]
+map(id, addr, pte);
+unmap(id, addr);
+resolve(id, addr);
+\end{lstlisting}
+\end{minipage}
+\end{center}
+
+The \emph{concrete state} consists of \emph{registers}, modeled as a mapping from variable names (strings) to integer values, together with a \emph{memory heap} modeled as a mapping from integer addresses to integer values.
+
+In the structural lifting proof, the \emph{abstract state} is an integer array, where the pair \((\textit{id}, \textit{addr})\) serves as the array index. We also treat \textit{unmap(id, addr)} as updating the value at the index \((\textit{id}, \textit{addr})\) to 0. So we can view it as \textit{map(id, addr, 0)} in the verification.
+
+\subsection{Proof Strategy}
+At a high level, we aim to prove the following two conditions:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Update correctness.} Executing \textit{map(id, addr, pte); resolve(id, addr)} returns \textit{pte}.
+  \item \textbf{Non-Interference.} For any \((\textit{id'}, \textit{addr'}) \neq (\textit{id}, \textit{addr})\), starting from the same concrete state,  
+    \textit{map(id, addr, pte); resolve(id', addr')}  
+    and  
+    \textit{resolve(id', addr')}  
+    return the same value.
+\end{enumerate}
+
+If both conditions hold, then \textit{map} and \textit{resolve} behave exactly like array \textit{write} and \textit{read} operations indexed by \((\textit{id}, \textit{addr})\) and hence the structural lifting property holds. 
+We establish these conditions automatically using \emph{symbolic execution}.
+
+\paragraph{Symbolic execution}
+We compile the paging functions into LLVM IR, and the IR instructions~\cite{llvminst} are then processed by our custom symbolic executor (see~\autoref{sec:semantics} for more details).  
+A \emph{symbolic concrete state} is a tuple \((R, H, P)\):
+\begin{itemize}[leftmargin=*]
+    \item \(R\) (symbolic registers) maps variable names to symbolic integer values.
+    For instance, $R(\textit{id})$ represents the symbolic value of \textit{id}. We assume the return value is stored in a distinguished variable $R(\textit{ret})$.
+    \item \(H\) (symbolic heap) maps indices (pairs of symbolic integers) to symbolic integer values. This represents all memory of the system.
+    \item \(P\) (path condition) is a boolean formula characterizing the constraints accumulated along the execution path. Any satisfying assignment of \(P\) corresponds to a concrete state that is reachable following this path.
+\end{itemize}
+Starting from an input symbolic concrete state and a program expressed in LLVM IR, the symbolic executor computes the resulting symbolic concrete state produced by executing the program.
+
+\paragraph{Proving update correctness.}
+With the symbolic executor, we can prove update correctness in three steps:
+\begin{enumerate}[leftmargin=*]
+  \item Begin with an initial symbolic state \((R, H, P)\), where \(R\) maps the strings \textit{id}, \textit{addr}, and \textit{pte} to fresh symbolic variables, \(H\) is a symbolic heap satisfying a \emph{well-formedness condition} $W$, e.g., describing a valid 3-level page structure, and \(P\) is \textit{true}. More details about well-formedness will be given later.
+  \item Starting from \((R, H, P)\), symbolically execute \textit{map(id, addr, pte)}, yielding an intermediate state \((R_1', H_1', P_1')\). Then, symbolically execute \textit{resolve(id, addr)}. Notably, although \textit{resolve} is intended to be a read-only operation, we must account for unintended memory mutations, as we are verifying potentially buggy C code. Therefore, executing \textit{resolve} yields a new resulting state \((R_2', H_2', P_2')\), where \(R_2'\) captures the return value in a distinguished variable \textit{ret}.
+  \item Query the SMT solver on the satisfiability of \(W \wedge R(\textit{pte}) \neq R_2'(\textit{ret})\). This query asks the solver whether the returned value may fail to match the initial value of \textit{pte}. If this formula is unsatisfiable, the condition is verified.
+\end{enumerate}
+
+Often, a well-formedness condition is required to establish such a proof. If the input memory state already violates the structural invariants of a valid page table, for example, when an entry at the second-level table points to the root level table, the table traversal might end at some non-leaf entries. Then \textit{resolve} cannot be expected to locate the desired entry correctly. The exact form of the well-formedness condition depends on the system under consideration. We will present a concrete instance in~\autoref{sec:case-study}.
+
+\paragraph{Proving non-interference.}
+Similarly, non-interference can be proven in three steps:
+\begin{enumerate}[leftmargin=*]
+  \item Begin with an initial symbolic state \((R, H, P)\), where \(R\) maps the strings \textit{id}, \textit{id'}, \textit{addr},  \textit{addr'}, and \textit{pte} to fresh symbolic variables, \(H\) is a symbolic heap satisfying a \emph{well-formedness condition} \(W\), and \(P\) is \true.
+  \item Starting from \((R, H, P)\), symbolically execute \textit{map(id, addr, pte); resolve(id', addr')}, yielding a resulting symbolic state \((R_1', H_1', P_1')\) and execute \textit{resolve(id', addr')} to obtain the resulting symbolic state \((R_2', H_2', P_2')\).
+  \item Query the SMT solver to check the satisfiability of \(W\wedge(R(\textit{id}) \neq R(\textit{id'}) \vee  \textit{\textbf{index\_differ}($R$(addr), $R$(addr'))})\\ \wedge R_1'(\textit{ret}) \neq R_2'(\textit{ret})\).  If this formula is unsatisfiable, the condition is verified.
+\end{enumerate}
+
+Often, not all bits of the variables \textit{addr} and \textit{addr'} are used for addressing. We therefore apply shifting and masking to extract the relevant bits used in page-table traversal, ensuring that \textit{addr} and \textit{addr'} differ in the portion that affects the traversal. Here, we write \textit{\textbf{index\_differ}($R$(addr), $R$(addr'))} to denote the encoding of these operations. Further details appear in the case study in \autoref{sec:case-study}.
+
+
+
+\paragraph{Alternative solution: refinement proof.}
+%An alternative approach to proving structural lifting is via refinement
+%proofs~\cite{brun23hotos,Brun2022VerifiedPaging}. We will show that this style of
+%proof requires quantifiers, which can make the reasoning complex.
+An alternative approach to proving structural lifting is via refinement
+proofs~\cite{brun23hotos,Brun2022VerifiedPaging}. We demonstrate, however, that
+this approach necessarily introduces quantifiers, thereby increasing the
+complexity of the reasoning.
+
+
+As a simple example, let $a$ be an abstract state that stores a flat map from
+addresses to page table entries, and let $c$ be a concrete state that stores a
+multi-level page table including registers and heap memory. The abstract
+operation $\textit{map}_A(\mathit{addr},\mathit{pte})$ is a state transformer
+that produces a new abstract state
+{
+\small
+\[
+  a' = \textit{map}_A(\mathit{addr},\mathit{pte})(a).
+\]
+}
+On the concrete side, the function $\mathit{flatten}(c)$ walks the multi-level
+page table in $c$ and returns the induced flat map of addresses to entries. We
+define the abstraction relation as: 
+{
+\small
+\[
+  AR(a,c) \triangleq a = \mathit{flatten}(c).
+\]
+}
+Under this abstraction relation, refinement of paging operations is expressed as
+a standard simulation requirement. For the \textit{map} operation, we require
+{
+\small
+\[
+\forall c,a,\mathit{addr},\mathit{pte}.
+\left(
+\begin{aligned}
+   & AR(a,c)
+     \land
+     c' = \textit{map}_C(\mathit{addr},\mathit{pte})(c)
+     \Rightarrow
+   \\
+   & \exists a'.
+       \bigl(
+         a' = \textit{map}_A(\mathit{addr},\mathit{pte})(a)
+         \land
+         AR(a',c')
+       \bigr)
+\end{aligned}
+\right)
+\]
+}
+Analogous obligations arise for \textit{unmap} and \textit{resolve}.
+%As noted earlier, proving formulas with quantifiers is extremely challenging for SMT, and obligations of the form above introduce alternating quantifiers that SMT solvers handle poorly.}
+Proving formulas with quantifiers is notoriously tricky for SMT solvers, and obligations of the form above introduce quantifiers that further hinder automated reasoning. One might mitigate this with triggers, which guide quantifier instantiation. However, as discussed earlier, their effectiveness could be limited: they can easily either fail or over-instantiate. As a result, even with carefully chosen triggers, the verification tasks remain challenging for SMT solvers.
+%are brittle, susceptible to formula structure, and
+
+\begin{comment}
+\paragraph{Well-formedness.}
+Our proof relies on a well-formedness condition that specifies how page-table 
+pages are allocated across the levels of the page-table hierarchy.
+\begin{tcolorbox}[height=1.5cm,valign=center,arc=0pt]
+\textbf{Well-formedness condition}: every page-table entry in memory must either
+be a last-level entry or point to a lower-level entry, but never to itself.
+\end{tcolorbox}
+Prior work such as CortenMM~\cite{zhang25cortenmm} encodes well-formedness as a
+global invariant over the entire page-table structure and proves that this
+invariant is preserved across all paging operations. Such global specifications
+inevitably require quantifiers, since they must characterize the structure of
+every page-table entry in memory and show that this property holds after each
+operation.
+In contrast, our verification target is limited to the paging functions
+themselves within a modular verification framework. We assume that any component
+outside the paging functions, such as the memory allocator or other kernel
+subsystems, always produces and maintains page tables that are already well-formed. Under this assumption, our specification needs to capture only the
+well-formedness of the page-table entries that may be accessed during a call to
+a paging function.
+Consider an execution of \textit{map(id, addr, pte)} in a two-level page-table
+system that allocates missing level-two tables on demand. Our specification
+assumes well-formedness only for the following locations: the level-one entry
+and the level-two entry reached when decoding \textit{addr} (if the mapping
+already exists), and the candidate level-one entry used when allocating a new
+level-two table. This localized requirement is sufficient for establishing
+structural lifting and avoids the global quantifiers that burden existing
+approaches, leading to significantly improved verification performance.
+\end{comment}
+
+\subsection{Verification Workflow}
+\label{sec:impl}
+
+We introduce the Push-button Paging-Function Verification (\ppv{}) framework. \autoref{fig:workflow} presents the verification workflow of \ppv{}, which operates in the following stages. To verify a given paging function implementation, users provide the C source code along with specifications written in SMT-LIB~\cite{barrett2010smt}, including the well-formedness condition and template formulas for the array-theory two conditions.
+\begin{figure}[h]
+\centering
+\includegraphics*[width=\columnwidth]{workflow.pdf}
+\caption{\ppv{} Workflow.}
+\label{fig:workflow}
+\end{figure}
+First, the paging functions are compiled into LLVM IR, which preserves low-level memory semantics such as pointer arithmetic, loads, and stores. LLVM IR is used as the verification substrate because its operational semantics are precisely defined and amenable to symbolic reasoning. Our prototype employs an unmodified Clang compiler with LLVM 14.0.0. A custom symbolic executor then generates symbolic states at return positions and constructs formulas for the update correctness and non-interference conditions of the array axiom. These formulas are then passed to SMT solvers; if both are shown to be unsatisfiable, the structural lifting property is established.
+\paragraph{Integration with Existing Verification Framework.} Past verification frameworks~\cite{spoq,li:ieeesp2021,li:sekvm:usenix21} adopt a modular strategy that separates the proofs of paging functions into an independent module. Once it is proven that the module's implementation refines the abstract specification defined over an abstract map, further reasoning about the system implementation that builds on the paging function can be carried out with respect to the simpler abstract specification, avoiding complex reasoning over the concrete implementation that operates on a multi-level page table. For example, Spoq requires manually proving that each paging primitive implemented over concrete page tables exhibits behavior equivalent to its counterpart in the abstract paging model.
+
+We demonstrate that PPV can be integrated with Spoq to automate this verification step. Rather than proving refinement directly for each paging-function implementation, PPV verifies two conditions: update correctness and non-interference. Based on these conditions, we construct a reusable \emph{connecting proof} in Coq. The proof establishes a refinement relation between the concrete page-table state and the abstract paging model used by Spoq. Intuitively, the refinement relation states that a walk in the concrete page table returns the same result as a lookup in the abstract map. The connecting proof then shows that if update correctness and non-interference hold, every execution of the concrete \textit{map} and \textit{unmap} operations preserves this relation. Consequently, the behavior of the concrete implementation remains consistent with the abstract specification after every update. This observation yields the following property.
+
+\theoremstyle{definition}
+\newtheorem{remark}{Property}
+\begin{remark}
+For any implementation of the paging primitives \textit{walk}, \textit{map}, and \textit{unmap}, if the implementation satisfies update correctness and non-interference, then the implementation refines the corresponding high-level abstract specification.
+\label{remark}
+\end{remark}
+
+The integration workflow proceeds as follows. First, PPV automatically verifies update correctness and non-interference for a target paging-function implementation through symbolic execution. The resulting proofs are then supplied as hypotheses to the connecting proof. Once these hypotheses are discharged, refinement of the implementation with respect to Spoq's abstract paging specification follows automatically. Therefore, PPV effectively replaces implementation-specific refinement proofs, enabling push-button verification of paging functions while preserving the guarantees required for full-system verification. A detailed formalization of the connecting proof is presented in~\autoref{sec:cp}.
+
+\begin{comment}
+We integrate the established proofs of paging functions via PPV into an automated verification framework to support end-to-end verification of the entire system. Our objective is to enable the use of the abstract paging-function specification within a verification framework while avoiding substantial effort. To prove a paging function that characterizes the specification of its implementation over an abstract flat map, we discharge the specification to construct a \textit{connecting proof}, which establishes Property~\autoref{remark:pcon} stated below.
+
+\sw{Since we can establish, via the PPV framework, that the concrete paging function satisfies the conditions imposed by the array axiom, we can invoke Property~\autoref{remark:pcon} to conclude that this concrete paging function—already proven to be an implementation meeting those conditions—refines the abstract specification.}
+
+\sw{More precisely, in the \textit{connecting proof}, we formalize a data-refinement proof, expressed in Hoare logic, between two machines: (i) an abstract machine that defines the flat map serving as the semantic basis of the specification, and (ii) a concrete, low-level machine that represents memory as a key–value store indexed by addresses. The \textit{connecting proofs} demonstrate that every paging-function implementation executing on the low-level machine that satisfies the two array-theory conditions refines the abstract specification.
+}
+
+\sw{To ensure soundness, we use the exact primitive function prototype in the specifications of all paging functions. Furthermore, the exact array theory properties proven by our SMT-based framework are exported as hypotheses for the \textit{connecting proof}.}
+\todo{soundness?}
+\end{comment}
+
+\subsection{Case Study}
+\label{sec:case-study}
+To enhance the reader’s understanding of our approach, we present a detailed end-to-end case study that illustrates how the entire verification process is carried out. This section is intentionally extensive, as it walks through every step of symbolic execution, state construction, branching behavior, and SMT-based checking, which together demonstrate the mechanics of our framework. \autoref{tbl:op} shows the commonly used operations in our encoding along with their corresponding descriptions. 
+
+We consider a simplified implementation of paging functions that manage two-level page tables.  As shown in Listing~\ref{fig:paging-function:case}, the \textit{map} function establishes a mapping from an address (\textit{addr}) to a page table entry (\textit{pte}) by first traversing the level-1 page table (PGD) and then the level-2 page table (PT), allocating internal page-table entries as needed. The \textit{resolve} function traverses two-level page tables and retrieves the \textit{pte} associated with a given \textit{addr}. For demonstration, the \textit{map} function here does not perform dynamic page table allocation, and the function \textit{get\_pgd\_base(id)} retrieves the value of a global variable \textit{base}, which is an array indexed by \textit{id}. In other words, we consider a simplified \textit{map} function in which the level-1 page table entry always exists. Note that our approach has been applied to verify a complex \textit{map} function that supports dynamic page-table allocation for missing entries (see \autoref{sec:eval}).
+
+
+\begin{table}[t]
+\centering
+\caption{Description of common operations}
+%\renewcommand{\arraystretch}{1}
+\label{tbl:op}
+\footnotesize
+\begin{tabular}{ |p{1.3cm}|p{6.30cm}| }
+    \hline
+    \textbf{Name} & \textbf{Description} \\
+    \hline 
+     $\text{Select}(a, i)$ & The value stored at index $i$ of the symbolic array $a$.\\
+    \hline
+    $\text{Store}(a, i, v)$ & A new symbolic array identical to $a$ except that index $i$ stores the value $v$. \\ 
+    \hline 
+    $\text{div}(x, 2^k)$ & Logically shifts $x$ to the right by 
+$k$ bits, keeping only the higher-order bits. \\
+    \hline
+    $\text{mod}(x, 2^k)$ & Extracts the lowest $k$ bits of $x$. \\ 
+    \hline
+    $\text{ite}(f, x, y)$ & Returns $x$ if the condition $f$ holds, and returns $y$ otherwise. \\ 
+    \hline
+\end{tabular}
+\end{table}
+
+\begin{listing}
+\caption{C-based Examples of Paging Functions.}
+\label{fig:paging-function:case}
+
+\begin{minted}[
+  linenos,
+  frame=lines,
+  framesep=2mm,
+  fontsize=\footnotesize,
+  funcnamehighlighting,
+  autogobble,
+  xleftmargin=2em,
+]{cpp}
+void map(int32_t id, int32_t addr, int32_t pte) {
+    int32_t pgd_idx, pgd_base, pte_idx, pte_base; 
+    int32_t pgd_addr, pte_addr;
+    pgd_base = get_pgd_base(id);
+    pgd_idx = ((addr >> 22) & 0x3FF) * 4;
+    pgd_addr = pgd_base + pgd_idx;
+    pte_base = *(int32_t*)(pgd_addr);
+    pte_idx = ((addr >> 12) & 0x3FF) * 4;
+    pte_addr = pte_base + pte_idx;
+    *(int32_t*)pte_addr = pte;
+}
+
+int32_t resolve(int32_t id, int32_t addr) {
+    int32_t pgd_idx, pgd_base, pte_idx, pte_base;
+    int32_t pgd_addr, pte_addr;
+    pgd_base = get_pgd_base(id);
+    pgd_idx = ((addr >> 22) & 0x3FF) * 4;
+    pgd_addr = pgd_base + pgd_idx;
+    pte_base = *(int32_t*)(pgd_addr);
+    if (!pte_base)
+        return 0L;
+    pte_idx = ((addr >> 12) & 0x3FF) * 4;
+    pte_addr = pte_base + pte_idx;
+    return *(int32_t*)pte_addr;
+}
+\end{minted}
+\end{listing}
+
+
+
+We demonstrate how we prove update correctness of the paging functions in Listing~\ref{fig:paging-function:case}. We start with the symbolic state $(R_0, H_0, P_0)$, as shown in \autoref{state_0}. 
+\begin{equation}\
+\label{state_0}
+\small
+\begin{aligned}
+&(R_0,H_0,P_0) \triangleq \\
+\Big(   \{&\
+         \textit{id}\!\mapsto v_{\mathit{id}},
+         \textit{addr}\!\mapsto v_{\mathit{addr}},
+         \textit{pte}\!\mapsto v_{\mathit{pte}},
+         \textit{base}\!\mapsto a\}, h, \textit{true} \Big)
+\end{aligned}
+\end{equation}
+
+
+$R_0$
+maps the strings \textit{id}, \textit{addr} and \textit{pte}, to fresh symbolic variables $v_{id}$, $v_{addr}$, and $v_{pte}$, and also maps the global array \textit{base} to a fresh symbolic array $a$, $H_0$ is a symbolic heap $h$ that satisfies the 
+well-formedness condition $W$ (given later), and the path condition $P_0$ is simply 
+\textit{true}. 
+
+We first symbolically execute \textit{map(id, addr, pte)} according to the instructions and obtain the resulting symbolic state $(R_1, H_1, P_1)$ (\autoref{state_1}). For example, line~4 in Listing~\autoref{fig:paging-function:case} assigns the return value of \textit{get\_pgd\_base(id)} to the local variable \textit{pgd\_base}. Accordingly, we add a mapping in $R_1$ from the string \textit{pgd\_base} to the symbolic expression $\text{Select}(a, v_{\mathit{id}})$. Similarly, in line~5, the bit-manipulation operations extract bits 31--22 from \textit{addr}, multiply the result by 4 (aligned to a 4-byte entry), and store it in \textit{pgd\_idx}. For brevity, we use the notation \textit{addr[31:22]} to denote extracting a slice of bits from a variable, which is syntactic sugar for a sequence of integer modulo and division by powers of two (\autoref{substr}).
+
+\begin{equation}\
+\label{substr}
+\small
+v[n:m] \triangleq \\
+\text{div}( \text{mod}(v, 2^{n+1}), 2^{m})
+\end{equation}
+
+The memory load instruction in line 7, which loads the value at \textit{pgd\_addr} into \textit{pte\_base}, is translated into the mapping $R_1(\textit{pte\_base})$. The memory store to \textit{pte\_addr} at line 10 is reflected in \autoref{heap_1}, showing that the heap state changes after this instruction. $P_1$ remains unchanged since \textit{map()} contains no conditional instructions.
+
+\begin{equation}
+\label{heap_1}
+\small
+\begin{aligned}
+& H_1 \triangleq \text{Store}(H_0, R_1(\textit{pte\_addr}), R_1(pte))\\
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\small
+\begin{aligned}
+& P_1 \triangleq P_0
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\label{state_1}
+\small
+\begin{aligned}
+& R_1 \triangleq \\
+&\{
+        \textit{id}\!\mapsto v_{\mathit{id}},\
+        \textit{addr}\!\mapsto v_{\mathit{addr}},\
+        \textit{pte}\!\mapsto v_{\mathit{pte}},\
+        \textit{base}\!\mapsto a,\\
+      &\ \textit{pgd\_base}\!\mapsto \text{Select}(a, v_{\mathit{id}}),\\
+      &\ \textit{pgd\_idx}\!\mapsto v_{\mathit{addr}}[31:22]  \times 4,\\
+      &\ \textit{pgd\_addr}\!\mapsto \text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4,\\
+      &\ \textit{pte\_base}\!\mapsto \text{Select}(H_0, (\text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4)),\\
+      &\ \textit{pte\_idx}\!\mapsto v_{\mathit{addr}}[21:12] \times 4,\\
+      &\ \textit{pte\_addr}\!\mapsto \text{Select}(H_0, (\text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4)) \\
+      &\ + v_{\mathit{addr}}[21:12] \times 4 \}
+\end{aligned}
+\end{equation}
+
+Subsequently, executing  \textit{resolve(id, addr)} starting from the state $(R_1, H_1, P_1)$ yields two intermediate states due to the branch at line 20. The state $(R_{2a}, H_{2a}, P_{2a})$ represents the case where the if-condition holds, causing the function to terminate and return zero, while the state $(R_{2b}, H_{2b}, P_{2b})$ represents the execution path where the function continues. In both $R_{2a}$ and $R_{2b}$, we append an apostrophe to the names of local variables (e.g., \textit{pgd\_base'}) to distinguish them from the mappings created during the symbolic execution of \textit{map()}. When referring to the heap in either branch, we use $H_1$ rather than $H_0$ because the execution starts from $(R_1, H_1, P_1)$. The branching condition at line 20 is encoded in $P_{2a}$, implying that $R_{2a}$ is reachable only when $P_{2a}$ holds, and the negation of $P_{2a}$ forms $P_{2b}$. Furthermore, since \textit{resolve()} contains no memory stores, the heap remains unchanged in both branches (i.e., $H_{2a}$ and $H_{2b}$ are identical to $H_1$).
+
+\begin{equation}
+\label{state_2a}
+\small
+\begin{aligned}
+& R_{2a} \triangleq \\
+&\{
+        \textit{id}\!\mapsto v_{\mathit{id}},\
+        \textit{addr}\!\mapsto v_{\mathit{addr}},\
+        \textit{pte}\!\mapsto v_{\mathit{pte}},\
+        \textit{base}\!\mapsto a,\\
+      &...\\
+      &\ \textit{pgd\_base'}\!\mapsto \text{Select}(a, v_{\mathit{id}}),\\
+      &\ \textit{pgd\_idx'}\!\mapsto v_{\mathit{addr}}[31:22]  \times 4,\\
+      &\ \textit{pgd\_addr'}\!\mapsto \text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4,\\
+      &\ \textit{pte\_base'}\!\mapsto \text{Select}(H_1, (\text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4)),\\
+      &\ \textit{\textbf{ret}}\!\mapsto 0\}
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\small
+\begin{aligned}
+& H_{2a} \triangleq H_{1}
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\small
+\begin{aligned}
+& P_{2a} \triangleq R_{2a}(\textit{pte\_base'}) = 0
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\label{state_2b}
+\small
+\begin{aligned}
+& R_{2b} \triangleq \\
+&\{
+        \textit{id}\!\mapsto v_{\mathit{id}},\
+        \textit{addr}\!\mapsto v_{\mathit{addr}},\
+        \textit{pte}\!\mapsto v_{\mathit{pte}},\
+        \textit{base}\!\mapsto a,\\
+      &...\\
+      &\ \textit{pgd\_base'}\!\mapsto \text{Select}(a, v_{\mathit{id}}),\\
+      &\ \textit{pgd\_idx'}\!\mapsto v_{\mathit{addr}}[31:22]  \times 4,\\
+      &\ \textit{pgd\_addr'}\!\mapsto \text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4,\\
+      &\ \textit{pte\_base'}\!\mapsto \text{Select}(H_1, (\text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4)),\\
+      &\ \textit{pte\_idx'}\!\mapsto v_{\mathit{addr}}[21:12] \times 4,\\
+      &\ \textit{pte\_addr'}\!\mapsto \text{Select}(H_1, (\text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4)) \\
+      &\ + v_{\mathit{addr}}[21:12] \times 4, \\
+      &\ \textit{\textbf{ret}}\!\mapsto \text{Select}(H_1, (\text{Select}(H_1, (\text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4)) \\
+      &\ + v_{\mathit{addr}}[21:12] \times 4))\}
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\small
+\begin{aligned}
+& H_{2b} \triangleq H_{1}
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\small
+\begin{aligned}
+& P_{2b} \triangleq R_{2b}(\textit{pte\_base'}) \neq 0
+\end{aligned}
+\end{equation}
+
+In LLVM IR, each conditional branch produces two successor basic blocks and consequently introduces a $\phi$ instruction to select the appropriate value upon merging. Our symbolic executor follows the same principle: when encountering a conditional instruction, it forks the current state into two states, $(R_{2a}, H_{2a}, P_{2a})$ and $(R_{2b}, H_{2b}, P_{2b})$. These two states are later merged using the ite (if-then-else) operation. Specifically, line 24 corresponds to a $\phi$ instruction in IR, indicating that the return value depends on the execution path and must therefore be merged. We merge $R_{2a}(\textit{ret})$ and $R_{2b}(\textit{ret})$ to obtain $R_{3}(\textit{ret})$. Following this merge, $H_{3}$ remains unchanged since $H_{2a}$ and $H_{2b}$ are identical, and the path condition is updated to $P_{3} \triangleq P_{2a} \vee P_{2b}$, which simplifies to \textit{true}.
+
+\begin{equation}
+\label{state_3}
+\small
+\begin{aligned}
+& R_{3} \triangleq \\
+&\{...\\
+      &\ \textit{\textbf{ret}}\!\mapsto \text{ite}((\text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4)) = 0, 0,\\
+      &\text{Select}(H_1, (\text{Select}(H_1, (\text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4)) \\
+      &\ + v_{\mathit{addr}}[31:12] \times 4))\}
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\small
+\begin{aligned}
+& H_{3} \triangleq H_{1}
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\small
+\begin{aligned}
+& P_{3} \triangleq \textit{true}
+\end{aligned}
+\end{equation}
+At this point, we can see how the symbolic states are produced.
+\begin{equation}\
+\label{progress}
+\small
+\begin{aligned}
+&(R_0, H_0, P_0)_{\underline{\textit{map(id, addr, pte); resolve(id, addr)}}} \\\Rightarrow &(R_1, H_1, P_1)_{\underline{\textit{resolve(id, addr)}}}\\
+\Rightarrow &(R_3, H_3, P_3)
+\end{aligned}
+\end{equation}
+
+After symbolic execution, we query an SMT solver on the satisfiability of the formula 
+\[W \wedge R_0(\textit{pte}) \neq R_3(\textit{ret}).\]If this formula is satisfiable, then there exists a counterexample that satisfies the well-formedness condition $W$ but violates update correctness. Conversely, if this formula is unsatisfiable, then no such counterexample exists, and thus the update correctness condition is verified. The final component of the proof is therefore the \emph{well-formedness} condition.
+
+\paragraph{Well-formedness.} 
+
+The well-formedness condition specifies the valid memory states required for verification. Paging functions often assume that memory states satisfy certain conditions, such as those defined in the Quantified Well-formedness below.
+
+\begin{tcolorbox}[height=1.5cm,valign=center,arc=0pt]
+\textbf{Quantified Well-formedness condition}: every page-table entry in memory must be either a last-level entry or must point to a lower-level entry, but never to itself.
+\end{tcolorbox}
+
+Prior works~\cite{zhang25cortenmm, atmosphere2025sosp} encode well-formedness over the \emph{entire} page-table structure stored in memory. This design choice introduces an additional source of quantifiers (beyond those required by the refinement-based proof formulation) when verifying paging functions.
+We propose an alternative strategy that encodes an analogous well-formedness condition without using quantifiers. 
+The key observation is that proving the structural lifting property requires only a localized form of well-formedness rather than a universally strong one. Given a valid input \textit{id}, \textit{addr}, and \textit{pte}, an execution of \textit{map()} or \textit{resolve()} touches only a fixed set of memory locations. In our experience, ensuring the well-formedness of precisely these locations is sufficient to establish the correctness of the paging functions.
+
+In the code under consideration, there are four memory load/store instructions (lines 7, 10, 19, and 24). Among them, line 7 and line 19 refer to the same memory location whenever the input \textit{id} and \textit{addr} are the same; similarly, line 10 and line 24 refer to another single location. We denote these two relevant addresses as \textit{pgd\_addr} (for line 7,19) and \textit{pte\_addr} (for line 10,24). Therefore, we only require the well-formedness over this pair of locations. Moreover, instead of enforcing the constraint that each entry must be either a last-level entry or point to a lower-level entry, we can simplify the requirement even further: it is sufficient to state that these locations are distinct to establish the two correctness conditions and hence structural lifting. With this simplification, our well-formedness condition, denoted as $W$, can be expressed purely in terms of the initial fresh variables $H_0$, $R_0(\textit{id})$, $R_0(\textit{addr})$, and $R_0(\textit{base})$ without introducing any quantifiers.
+
+\begin{equation}
+\label{wf}
+\small
+\begin{aligned}
+    W & \triangleq \textit{pgd\_addr} \neq \textit{pte\_addr}\\
+      & \triangleq (\text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4)\\
+      & \quad \neq  (\text{Select}(H_0, (\text{Select}(a, v_{\mathit{id}}) + v_{\mathit{addr}}[31:22] \times 4)) \\
+      & \quad \quad + v_{\mathit{addr}}[21:12] \times 4 ) 
+\end{aligned}
+\end{equation}
+
+The non-interference condition can be established using the same symbolic execution steps as in the update-correctness proof. The only additional component required is the definition of \textit{\textbf{index\_differ}}, which specifies when two addresses use distinct page-table entries. In this case study, \textit{\textbf{index\_differ}} is defined in \autoref{eq_sym}.
+
+\begin{equation} 
+\small
+\label{eq_sym} 
+\begin{array}{l} 
+\textit{\textbf{index\_differ}($R$(addr), $R$(addr')) $\coloneq$} \\ \textit{$R$(addr)[31:12]} \neq \textit{$R$(addr')[31:12]} \\ 
+\end{array} 
+\end{equation}
+
+
+
+
+
+\begin{comment}
+\begin{figure}[t]
+\begin{Verbatim}[numbers=left, numbersep=6pt, fontsize=\small]
+void map(u64 vttbr, u64 addr, u64 pte) {
+    //traverse the level-1 page table
+    u64 pgd_base= vttbr & 0xFFFFFFFFF000ULL; 
+    u64 pgd_idx = ((addr >> 39) & 0x1FF);
+    u64 *pgd_addr = (void *)(pgd_base| (pgd_idx * 8UL));
+    u64 pgd = *pgd_addr;
+    //traverse the level-2 page table
+    u64 pte_base= pgd & 0xFFFFFFFFF000ULL;
+    u64 pte_idx = ((addr >> 30) & 0x1FF);
+    u64 *pte_addr = (void *)(pte_base| (pte_idx * 8UL));
+    *pte_addr = pte;
+}
+u64 resolve(u64 vttbr, u64 addr) {
+    //traverse the level-1 page table
+    u64 pgd_base= vttbr & 0xFFFFFFFFF000ULL;  
+    u64 pgd_idx = ((addr >> 39) & 0x1FF);
+    u64 *pgd_addr = (void *)(pgd_base| (pgd_idx * 8UL));
+    u64 pgd = *pgd_addr;
+    //traverse the level-2 page table
+    u64 pte_base= pgd & 0xFFFFFFFFF000ULL;
+    u64 pte_idx = ((addr >> 30) & 0x1FF);
+    u64 *pte_addr = (void *)(pte_base| (pte_idx * 8UL));
+    return *pte_addr;
+}
+\end{Verbatim}
+%\vspace{-0.2pt}
+\caption{The Motivating Example of Paging Functions \textit{map} and \textit{resolve}. \todo{fix code example with good eyes.}}
+\label{fig:example}
+%\vspace{-0.5cm}
+\end{figure}
+
+We consider a simplified paging function implementation that manages two-level page tables.  As shown in Listing~\ref{fig:example}, the \textit{map} function establishes a mapping from an address (\textit{addr}) to a page table entry (\textit{pte}) by first traversing the level-1 page table (PGD) and then the level-2 page table (PT), allocating internal page-table entries as needed. The \textit{resolve} function traverses two-level page tables and retrieves the (\textit{pte}) associated with a given \textit{addr}. In this example, we omitted the \textit{unmap} function; in the verification, it can be viewed as mapping to a special value $\bot$. For demonstration, the \textit{map} function here does not perform dynamic page table allocation. A more practical implementation usually handles the case where a level-1 page table entry does not exist (as shown in line 7). Note that our approach can verify paging functions with dynamic page table allocations. \todo{SUBSTANTIATE.}
+%which can be used to replace the implementation and run on a hypervisor based on the Linux kernel.
+%”it can be implemented by \textit{map} that unmaps \textit{addr} by setting the corresponding PT entry to 0.% 
+
+For page table traversals, input addresses encode the page table indices for each translation level within fixed bit ranges. The exact bits corresponding to each level to acquire the concrete entries. In our specific example, we consider a two-level translation scheme that maps to 4 KB pages; each level of page table is 4 KB size, and each entry is 32-bit long. The page tables translate an input 32-bit address (addr), which is segmented as follows: the Level-1 index is determined by bits 31-22 (10 bits), denoted as addr[31:22]; the Level-2 index is determined by bits 21 to 12 (10 bits). These fixed ranges require shifting and masking to isolate the index needed to dereference the page table entry at each level. Therefore, to state that two addresses, \textit{addr'} and \textit{addr}, are different in this case, we require that they differ in bits 31–12.
+\begin{equation}
+\label{eq_sym}
+\begin{array}{l}
+\textit{\textbf{index\_differ}($R$(addr), $R$(addr')) $\coloneq$} \\
+\textit{$R$(addr)[31:12]} \neq \textit{$R$(addr')[31:12]} \\
+\end{array}
+\end{equation}
+\end{comment}
+
+\begin{comment}
+\begin{listing}
+\begin{minted}[
+  linenos,
+  frame=lines,
+  framesep=2mm,
+  fontsize=\footnotesize,
+  funcnamehighlighting,
+  autogobble,
+  xleftmargin=2em,
+]{cpp}
+void map(int32_t id, int32_t addr, int32_t pte) {
+    int32_t* pgd_base, pte_base, pgd_addr, pte_addr;
+    int32_t pgd_idx, pte_idx;
+    pgd_base = get_pgd_base(id);
+    pgd_idx = ((addr >> 22) & 0x3FF);
+    pgd_addr = pgd_base + pgd_idx*4;
+    pte_base = *(int32_t*)(pgd_addr);
+    //if (!pte_base)
+    //    *pte_base = alloc_pt() | PT_FLAG;
+    pte_idx = ((addr >> 12) & 0x3FF);
+    pte_addr = pte_base + pte_idx*4;
+    *pte_addr = pte;
+}
+
+long resolve(int32_t id, int32_t addr) {
+    int32_t* pgd_base, pte_base, pgd_addr, pte_addr;
+    int32_t pgd_idx, pte_idx;
+    pgd_base = get_pgd_base(id);
+    pgd_idx = ((addr >> 22) & 0x3FF);
+    pgd_addr = pgd_base + pgd_idx*4;
+    pte_base = *(int32_t*)(pgd_addr);
+    if (!pte_base)
+        return 0L;
+    pte_idx = ((addr >> 12) & 0x3FF);
+    pte_addr = pte_base + pte_idx*4;
+    return *pte_addr;
+}
+\end{minted}
+\end{listing}
+void unmap(int id, long addr) {
+    long* pgd_base, pte_base, pgd_addr, pte_addr;
+    long pgd_idx, pte_idx;
+    pgd_base = get_pgd_base(id);
+    pgd_idx = ((addr >> 22) & 0x3FF);
+    pgd_addr = pgd_base + pgd_idx;
+    pte_base = *(long*)(pgd_addr);
+    if (!pte_base)
+        return;
+    pte_idx = ((addr >> 12) & 0x3FF);
+    pte_addr = pte_base + pte_idx;
+    *pte_addr = 0L;
+}    
+
+Our customized symbolic executor consumes LLVM IR instructions generated from the source code in Listing~\ref{fig:example} and the specification \autoref{eq_arr1}, then generates SMT expressions of \textit{map\_heap} and \textit{resolve\_ret}, which are then used to substitute the expression of \autoref{eq_arr1}. Here, suppose the paging functions are correctly implemented, such that their executions are equal to a \textit{write} and \textit{read} operation made against a flat array, using the \textit{pte\_addr} from Listing~\ref{fig:example} as input array index. This result corresponds to \autoref{eq_sym}.
+%As shown in \autoref{eq_sym}. The terms on the left-hand side of the $\coloneq$ symbol are those that will be substituted with their corresponding expressions on the right-hand side.
+\begin{equation}
+\label{eq_sym}
+\begin{array}{l}
+\textit{\textbf{map\_heap}(id, addr, pte, mem) $\coloneq$} \\
+\textit{write(mem, pte\_addr, pte)} \\
+\textit{\textbf{resolve\_ret}(id, addr, mem) $\coloneq$} \\
+\textit{read(mem, pte\_addr)}
+\end{array}
+\end{equation}
+
+As mentioned earlier, \textit{index\_differ} specifies that for two addresses, \textit{addr} and \textit{addr'}, refer to different indices in PGD and PT: their bits 31 to 12 must differ. For \textit{map\_heap}, the expression \textit{write(mem, pte\_addr, pte)} corresponds to the translation of the page table update performed at line 12 in Listing~\ref{fig:example}. \textit{pte\_addr}, as represented in \autoref{eq_sym:derive}, corresponds to operations done in lines 8--11 of the \textit{map} function, \textit{pte\_base} to lines to line 7, and \textit{pgd\_addr} to those from lines 4--6. The verification task is then constructed by substituting \textit{map\_heap(...)} and \textit{resolve\_ret(...)} in \autoref{eq_arr1} with their respective SMT expressions. Once substituted, the resulting formula can be directly solved by the SMT solver.
+
+\begin{equation}
+\label{eq_sym:derive}
+\begin{aligned}
+&\textit{pte\_addr $\coloneq$ pte\_base[31:12]*4096 + addr[21:12]*4}\\
+&\textit{pte\_base $\coloneq$ read(mem, pgd\_addr)} \\
+&\textit{pgd\_addr $\coloneq$ pgd\_base[31:12]*4096 + addr[31:22]*4}
+\end{aligned}
+\end{equation}
+
+\paragraph{Well-formedness.} 
+%To obtain \textit{pgd\_addr}, we follow the steps in lines 3–5, where \textit{0xFFFFFFFFF000ULL} is a 48-bit value whose rightmost 12 bits are zero, and \textit{(addr >> 39) \& 0x1FF} right-shifts \textit{addr} by 39 bits and extracts the rightmost 9 bits. The term $\textit{pgd} = \textit{read(mem, pgd\_addr)}$ represents line 6. As we have modeled the memory as an array, reading the memory at address \textit{pgd\_addr} in C is encoded as reading the array value at index \textit{pgd\_addr}.
+We tailor the boundary conditions to the memory allocator implementation. For instance, consider an implementation in which the memory allocator allocates page tables for different levels from unique \emph{page pools} (e.g., PGD pool and PT pool) that are located within segregated linear physical address ranges that do not overlap. Therefore, to ensure well-formedness, the specification must constrain these variables so that the corresponding page-pool ranges remain isolated across levels.
+
+Consider the example in Listing~\ref{fig:example}, the specification must ensure that the memory allocated for level-1 page tables (PGD) does not overlap with that for level-2 page tables (PT). To avoid introducing universal quantifiers, we focus only on the memory locations that the paging functions may access. For instance, we could introduce a constraint to specify a level-1 page table and a level-2 page table that differ for the \textit{map} function in Listing~\ref{fig:example}. In \autoref{eq_bd1}, \textit{pgd\_addr} represent the level-1 page table entry accessed by \textit{map}. The assertion states that it should not be identical to the address used as the level-2 page table entry, that is, \textit{pte\_addr}.
+\begin{equation}
+\label{eq_bd1}
+\begin{aligned}
+%& \textit{pgd\_addr} = \textit{vttbr[47:12]*4096 + addr[47:39]*8} \\
+%\land \ & \textit{pgd} = \textit{read(mem, pgd\_addr)} \\
+%\land \ & \textit{pte\_addr} = \textit{pgd[47:12]*4096 + addr[39:30]*8} \\
+%\land 
+\ & \textit{pgd\_addr} \neq \textit{pte\_addr}
+\end{aligned}
+\end{equation}
+
+%whenever it is invoked in the C implementation. In typical designs, 
+\todo{does it hold if we presume a generic allocator?}
+%from the formally verified SeKVM~\cite{li:ieeesp2021} hypervisor:
+\end{comment}

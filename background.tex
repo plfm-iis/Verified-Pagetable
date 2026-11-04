@@ -1,0 +1,174 @@
+\section{Background and Related Work}
+\label{sec:background}
+In this section, we first introduce \emph{symbolic execution}, the technique that PPV leverages to automatically extract corresponding SMT formulas from C implementations. We then discuss related work, highlighting the inherent limitations and the challenges that verification tools face with the quantified formula that our approach eliminates.
+
+%\sw{
+%\subsection*{Page Tables}
+%Low-level systems like OS and hypervisors manage page tables to virtualize memory resources. The OS maintains a separate page table for each process to map virtual addresses (VAs) in a process's address space to physical addresses (PAs). On the other hand, hypervisors manage the nested page table for each VM to map guest physical addresses (GPAs) to physical addresses. When CPUs execute an instruction that reads/writes from/to a memory address, the hardware's Memory Management Unit (MMU) traverses the page table to translate the intended address to PAs.
+%Page tables are in-memory data structures that map an input address (VA or GPA) to PAs. For modern systems with vast address spaces, a single, flat page table would consume an impractical amount of memory. Therefore, hardware architectures employ hierarchical page tables, which function as a multi-level tree data structure. An input address is split into multiple parts based on bit ranges (e.g., P1 and P2 offsets), each of which indexes into a different level of the page table tree. The top (root) level table contains entries that point to second-level tables, and so on, until the lowest level, which contains entries (PTEs) that hold the actual physical address and attribute bits (e.g., bits that control read and write permissions). This tree structure is memory-efficient because only the lower-level tables for the portions of the addresses that are actually in use need to be allocated and populated.
+%}
+
+\subsection{Symbolic Execution}
+
+\emph{Symbolic execution} treats program inputs as symbols rather than
+concrete values. During execution, the symbolic state is represented
+as a \emph{symbolic register}, which is a mapping from variable names to symbolic expressions, together with a \emph{path constraint} \(PC\), a conjunction of
+logical formulas describing when the current state is reachable. 
+Branching creates new states and updates \(PC\). Here, we give a concrete example.
+
+\begin{listing}
+\caption{\texttt{foo} computes the value \texttt{abs}($(a+1)-b$).}
+\label{fig:case}
+
+\begin{minted}[
+  linenos,
+  frame=lines,
+  framesep=2mm,
+  fontsize=\footnotesize,
+  funcnamehighlighting,
+  autogobble,
+  xleftmargin=2em,
+]{cpp}
+int foo(int a, int b) {
+    int x = a + 1;
+    if (x > b) return x - b;
+    else       return b - x;
+}
+\end{minted}
+\end{listing}
+
+
+For instance, to verify the sample program in Listing~\ref{fig:case}, a symbolic state is initially represented as a pair \((\sigma, PC)\), where the register \(\sigma\) maps
+variable names to expressions and \(PC\) is the path condition. The initial state is
+{
+\small
+\[
+(\{ a \mapsto \alpha,\; b \mapsto \beta \},\ \true ),
+\]
+}
+with fresh symbols \(\alpha,\beta\) for the inputs. After executing \(x := a+1\),
+the state becomes
+{
+\small
+\[
+(\{ a \mapsto \alpha,\; b \mapsto \beta,\; x \mapsto \alpha+1 \},\ \true).
+\]
+Branching on \(x > b\) yields two successor states:
+\[
+\text{Then: }(\{ a \mapsto \alpha,\; b \mapsto \beta,\; x \mapsto \alpha+1 \},\ \alpha+1>\beta),
+\]
+\[
+\text{Else: }(\{ a \mapsto \alpha,\; b \mapsto \beta,\; x \mapsto \alpha+1 \},\ \alpha+1\le \beta).
+\]
+}
+Evaluating the return statements produces:
+{
+\small
+\[
+\text{Then: }(\{ a \mapsto \alpha,\; b \mapsto \beta,\; x \mapsto \alpha+1,\;
+   ret \mapsto (\alpha+1)-\beta \},\ \alpha+1>\beta),
+\]
+\[
+\text{Else: }(\{ a \mapsto \alpha,\; b \mapsto \beta,\; x \mapsto \alpha+1,\;
+   ret \mapsto \beta-(\alpha+1) \},\ \alpha+1\le \beta),
+\]
+}
+where \(ret\) denotes the symbolic return value.
+
+Observe that now we obtain the relation between the input and return values. When the input values satisfy $\alpha+1>\beta$, then return value is $(\alpha+1)-\beta$, otherwise the return value is $\beta-(\alpha+1)$. 
+
+Such execution enables automatic program verification. For example, we can verify the return value is always $\texttt{abs}((\alpha+1)-\beta)$ by sending the query to an \emph{SMT solver}~\cite{z3}. 
+
+To verify correctness, we ask the SMT solver whether
+{
+\small
+\[
+(\alpha+1>\beta) \land 
+\bigl((\alpha+1)-\beta \neq \texttt{abs}((\alpha+1)-\beta)\bigr)
+\]
+}
+is satisfiable. An unsatisfiable result means the returned expression matches
+the specification on all inputs satisfying the branch condition. Similarly, for
+the else-branch, we check the satisfiability of
+{
+\small
+\[
+(\alpha+1\le\beta) \land 
+\bigl(\beta-(\alpha+1) \neq \texttt{abs}((\alpha+1)-\beta)\bigr).
+\]
+}
+
+If both queries are unsatisfiable, then no input can cause the implementation
+to disagree with the specification, proving the function is correct for all
+inputs.
+
+\subsection{Related Work} 
+\paragraph{Verification of paging functions.} Verified operating system kernels such as seL4~\cite{sel4} and Hyperkernel~\cite{hyperkernel} adopt microkernel architectures that delegate paging functionality to user-space services; these functions were unverified. While monolithic verified kernels like CertiKOS~\cite{certikos} rely on simplified implementations restricted to 2-level, single-granularity paging. Subsequent works~\cite{li:ieeesp2021,brun23hotos} verified more practical implementations that support deeper multi-level hierarchy and the dynamic allocation of missing page tables during a page map. To simplify proof effort, these works~\cite{li:ieeesp2021,brun23hotos} employ a modular verification strategy and separate \emph{paging functions} that perform basic page table operations--\textit{map}, \textit{unmap}, and \textit{resolve}--from the memory management code. Specifically, they verify the structural lifting property of page tables, proving that paging function implementations operating on a concrete multi-level structure in the hardware model refine an abstract specification defined as a flat array. It enables subsequent proofs on the abstract page table specification, streamlining verification of entire systems. 
+
+Despite these advances, verifying the structural lifting of page tables remains labor-intensive. Although recent work such as Spoq~\cite{spoq} has significantly advanced the automation of OS verification, substantial manual effort remains. The authors of Spoq, for example, automated most correctness proofs for the SeKVM~\cite{li:ieeesp2021} hypervisor; however, Spoq still requires over 2.5K lines of manual Coq code to verify SeKVM's paging functions. 
+
+%\todo{citations missing below...}
+
+Recent work~\cite{atmosphere2025sosp,zhang25cortenmm} has explored alternative methodologies to address the high verification burden of paging functions, including the use of Verus and system reconstruction.  Atmosphere~\cite{atmosphere2025sosp} redesigns the OS data structure abstractions to enable direct access to each page-table level without traversing the full hierarchy. Another work, CortenMM~\cite{zhang25cortenmm}, proposes a \emph{single-level abstraction} design for memory management code. By removing the redundant software-level tree structures (e.g., VMA trees in Linux), it manages memory directly through hardware page tables and metadata, thereby avoiding the complexity of synchronizing two separate states.
+
+Despite these simplifications, significant limitations remain. First, both approaches treat the page table entry allocator as part of the trusted computing base, leaving it outside the scope of verification. Second, both systems still require extensive use of quantifiers in their proofs. Consequently, unlike our approach, they rely heavily on triggers to guide the solver when reasoning about quantified formulas. For example, in Atmosphere's artifact~\cite{atmosphere-artifact}, page-table specifications such as \emph{wf\_l3()}—which defines the specific properties the third-level page table must satisfy—entail numerous \emph{forall} statements that require explicit triggers. We reproduced the Atmosphere artifact~\cite{atmosphere-artifact} and observed that its paging-table proofs critically depend on manually crafted triggers. Removing even a subset of these triggers consistently caused verification to fail due to solver timeouts.
+Constructing effective triggers can be time-consuming and labor-intensive in practice. It requires understanding both the intended program behavior and how the verification framework encodes that behavior into quantified formulas.
+
+%Atmosphere~\cite{atmosphere2025sosp} reduces proof complexity by assuming a \emph{ghost} page table that behaves as a flat map, but it lacks a formal proof that the ghost code respects the executable implementation. %\todo{shall we claim more?}
+%introducing \emph{tracked} permissions stored in a top-level map, enabling direct access to each level without traversing the full page table hierarchy. However, this approach relies on a set of trusted primitives to mutate these tracked permissions and must be carefully aligned with the executable code. Therefore, the soundness of the verification hinges on the correct use of these primitives.%
+
+%Another work, CortenMM~\cite{zhang25cortenmm}, proposes a \emph{single-level abstraction} design of memory management code. By removing the redundant software-level tree (e.g., VMA trees in Linux), it manages memory directly through hardware page tables and metadata, avoiding the complexity of synchronizing two separate states. Despite this simplification, the approach inherits the conventional specification design that requires extensive use of quantifiers. As a result, unlike our approach, CortenMM must rely heavily on carefully crafted triggers to guide the solver when reasoning about quantified formulas. This task can be rather challenging in practice.
+
+%While both Atmosphere and CortenMM leverage Verus to reduce proof burden, they come with notable limitations. CortenMM, in particular, relies heavily on carefully crafted triggers to guide the solver when reasoning about quantified formulas. Moreover, both works target verification of custom, self-built operating system kernels, meaning their methodologies and proofs are tightly coupled to a single concrete implementation. Hence, any modification to the paging structures, memory layout, or system architecture invalidates existing proofs and requires a costly, large-scale reverification.%
+
+%Although recent work like Spoq~\cite{spoq} has significantly advanced the automation of OS verification, verifying the structural lifting of page tables still requires substantial manual effort. 
+%, whether for a feature update or a security patch, also I
+
+
+%It also enables higher-level properties, such as noninterference, to be verified on simpler, high-level semantics, while ensuring that the resulting guarantees hold for the concrete implementation.
+%This abstraction enables subsequent proofs to operate on simple, high-level semantics, 
+%high-level semantics 
+%thereby eliminating the need to reason about low-level details, such as pointer chasing and MMU-specific bit encodings.  This approach also
+
+%HyperEnclave~\cite{dai24asplos} and CortenMM~\cite{zhang25cortenmm} proved that page tables represented in a flat physical memory refine a specification defined over a tree-structured page table abstraction. Others~\cite{li21sp,brun23hotos,Brun2022VerifiedPaging,atmosphere2025sosp} establish a refinement from a multi-level page table to a partial map.
+%Both HyperEnclave and SeKVM verified noninterference over the abstract page table specifications. More recently, Brun et al.~\cite{brun23hotos} prove that the implementation of the page table map, unmap, and resolve functions, in a Rust-based OS, NrOS, refines a map. However, verifying structural lifting for page table implementations still requires substantial manual effort. For instance, SeKVM's proof required over 2,500 lines of Coq code, while both it and the work by Brun et al. exhibit a proof-to-code ratio of approximately 10:1.
+%, that executes on an x86-64 MMU model, refines a high-level specification that views memory as a flat map.
+
+\paragraph{Solving quantified formulas.}
+SMT solvers cannot directly “prove’’ quantified formulas like 
+$\forall x.\,\varphi(x)$ unsatisfiable. To make progress, they must pick specific 
+values $t$ for $x$ and check if adding $\varphi(t)$ already results in an unsatisfiable formula. 
+The key question is: when should the solver try a particular 
+value? \emph{Triggers}~\cite{de2007efficient,clarke2018handbook} provide this guidance. A trigger is a pattern 
+inside the quantified formula that tells the solver, “If you see this 
+pattern appear in the proof, try using this quantified rule now.’’ For 
+example, if we attach the trigger $\{f(x)\}$ to $\forall x.\,\varphi(x)$, 
+then whenever an expression like $f(t)$ appears, the solver substitutes 
+$x$ with $t$ and reasons with $\varphi(t)$. Good triggers help the solver apply 
+quantified rules only when they are relevant, avoiding both missed 
+reasoning steps and excessive exploration. Consider the formula
+
+{
+\small
+\[
+\big(\forall x.\; f(x)=0 \Rightarrow P(x)\big)
+\;\land\;
+f(a)=0
+\;\land\;
+\lnot P(a),
+\]
+}
+which is logically unsatisfiable. To expose the contradiction, the solver 
+must instantiate the quantified rule with $x=a$, obtaining the implication 
+$f(a)=0 \Rightarrow P(a)$. Combined with $f(a)=0$ and $\lnot P(a)$, this 
+immediately produces an inconsistency. A trigger controls \emph{when} this 
+instantiation happens. If the rule uses the trigger $\{f(x)\}$, the solver 
+sees the expression $f(a)$ in the formula and instantiates the rule with 
+$x=a$, quickly reaching UNSAT. A trigger like $\{P(f(x))\}$ is unrelated because it does not match any pattern and hence cannot make any progress. 
+
+%In realistic OS proofs,
+Identifying suitable triggers is a labor-intensive and challenging process. It requires deep intuition not only about the code's behavior but also about how the verification system translates that behavior into logical formulas. Moreover, even small changes to the source code can render previously effective triggers useless, as the syntax of the generated formulas may change substantially even when the overall semantics remain the same. This volatility makes re-verifying updated software code extremely challenging and time-consuming, as the entire set of required triggers may need to be re-evaluated and reconstructed. Altogether, this makes trigger selection a notoriously tedious and brittle task. A quantifier-free encoding, as proposed in this work, can eliminate this problem.
+
+%Moreover, even small changes to the source code can render previously effective triggers useless, as the syntax of the generated formulas may change substantially despite the semantics remaining the same. Altogether, this makes trigger selection a notoriously tedious and challenging task. A quantifier-free encoding like the one proposed in this work can substantially mitigate this problem.
+
+

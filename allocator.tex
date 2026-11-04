@@ -1,0 +1,58 @@
+
+To improve the generality of our approach, we further explore a layered verification strategy that separates allocator verification from the verification of the core paging functionality. Under this design, the desired properties of paging functions---namely update correctness and noninterference---are established independently of the concrete allocator implementation.
+
+To achieve this separation, we extract the allocator-related assumptions from the original specification, rewrite them as an abstract allocator specification, and isolate them as a separate verification module. Intuitively, the allocator is invoked by upper-level paging functions, such as \texttt{map}, whenever page-table traversal reaches a missing intermediate entry and a new page-table page must be allocated.
+
+\begin{listing}
+\caption{C-based Examples of Dynamic Allocation.}
+\label{fig:alloc:case}
+\begin{minted}[
+  linenos,
+  frame=lines,
+  framesep=2mm,
+  fontsize=\footnotesize,
+  funcnamehighlighting,
+  autogobble,
+  xleftmargin=2em,
+]{cpp}
+void map(int32_t id, int32_t addr, int32_t pte) {
+    int32_t pgd_idx, pgd_base, pte_idx, pte_base; 
+    int32_t pgd_addr, pte_addr;
+    pgd_base = get_pgd_base(id);
+    pgd_idx = ((addr >> 22) & 0x3FF) * 4;
+    pgd_addr = pgd_base + pgd_idx;
+    pte_base = *(int32_t*)(pgd_addr);
+    if (pte_base == 0) {
+        pte_base = alloc();
+        *(int32_t*)(pgd_addr) = pte_base;
+    }
+    pte_idx = ((addr >> 12) & 0x3FF) * 4;
+    pte_addr = pte_base + pte_idx;
+    *(int32_t*)pte_addr = pte;
+}
+\end{minted}
+\end{listing}
+
+For example, in the dynamically allocating version of \texttt{map} (Listing~\autoref{fig:alloc:case}, Lines 7--11), the primary difference occurs when loading the value at \texttt{pgd\_addr}. If \texttt{pgd\_addr} is visited for the first time, the corresponding entry should not yet contain a valid pointer to a lower-level page table. In that case, the implementation calls the allocator to obtain a fresh page and stores the returned address at \texttt{pgd\_addr} before continuing the traversal.
+
+To model this behavior at the specification level, we introduce a ghost array \texttt{alloc} whose indexes are addresses and entries boolean values indicating whether a given address has already been returned by the allocator. The allocator specification used in our proof consists of two main components. First, each calling of the allocator must return a fresh address, i.e., a fresh page that has not been allocated previously. Second, the ghost \texttt{alloc} array must be updated consistently so that the returned address is marked as allocated. 
+
+\begin{equation}
+\label{alloc}
+\begin{aligned}
+    &\text{Select}(\texttt{old\_alloc}, \texttt{ret\_of\_alloc}) = \texttt{false} \\
+    \wedge\;&\texttt{new\_alloc} = \text{Store}(\texttt{old\_alloc}, \texttt{ret\_of\_alloc},  \texttt{true})
+\end{aligned}
+\end{equation}
+
+Here, \texttt{old\_alloc} and \texttt{new\_alloc} denote the ghost array before and after an allocator invocation, respectively. The returned address \texttt{ret\_of\_alloc} is required to be unallocated before the invocation and marked as allocated afterward.
+
+In the main verification workflow, we therefore do not inline the C implementation of the allocator into the symbolic execution of paging functions. Instead, we directly assume that allocator calls satisfy the specification, and leave the verification of the allocator implementation itself as a separate proof obligation.
+
+As a result, replacing the allocator does not require modifying the overall paging specification or reworking the full structural-lifting proof. Instead, one only needs to verify that the new implementation satisfies the allocator specification. This design allows different allocators to be integrated in paging verification.
+
+
+%平行比較相關paper，一個表格
+%說為何把pagetable單獨拉出來驗證是重要的
+%描述我們的tool在full os verification flow中的位置，如何整合至spoq驗證sekvm的過程，對TLB,COW, concurrency等驗證是否可以獨立於pagetable處理
+%減少page table敘述，讓驗證過程更clear

@@ -1,0 +1,158 @@
+\section{Symbolic Execution}
+\label{sec:se}
+
+Let $\mathbb{V}$ be the set of register names. $\mathit{expr}$ is the set of all SMT expressions over the theory of arrays and integers (QF\_AUF\\LIA).
+A \emph{program state} is a tuple $(R, H, P)_{\mathit{Inst}}$, where the \emph{register} $R:\mathbb{V}\mapsto \mathit{expr}$ is a mapping from names to (symbolic) values, the \emph{heap} is modeled as an SMT array expression, $P$ is the \emph{path condition}: a boolean expression that is evaluated to true iff the corresponding state is reachable, and $\mathit{Inst}$ is the sequence of \emph{instructions} going to be executed from this state. We write $i;\mathit{Inst}$ to denote the sequence appending $i$ to the front of $\mathit{Inst}$.
+We assume the program is a directed acyclic graph whose nodes are \emph{code blocks}, i.e., sequences of instructions modeled in this section. Although this cannot express recursive function calls, we show that it is already sufficient to model a large class of paging functions.
+
+Below, we formally define the semantics we used in our LLVM symbolic executor. 
+
+\begin{figure*}[t]
+\begin{equation}
+\label{phi}
+\frac{\text{pred}\ b_1(R_1,H_1, P_1)\ldots b_n(R_n,H_n, P_n)\quad \text{disjoint}(P_1,\ldots, P_n)}
+{
+    \substack{
+     (R_1,H_1,P_1) \ldots (R_n,H_n, P_n)_{\underline{v^{1}=\phi[v_1^1, b_1^1], \ldots, [v_n^1, b_n^1];\ldots;v^{m}=\phi[v_1^m, b_1^m], \ldots, [v_k^m, b_k^m]};\ \mathit{Inst}} \\
+     \Rightarrow (\bigcup_{k=1}^{n}{R_k}_{[v^1 \mapsto \text{ite}(P_1,R_1(v_1^1),
+    \text{ite}(P_2, R_2(v_2^1), \ldots)), v^2 \mapsto \text{ite}(P_1,R_1(v_1^2),
+    \text{ite}(P_2, R_2(v_2^2), \ldots)), \ldots]},\ \text{ite}(P_1,H_1, \text{ite}(P_2, H_2, \ldots))],P_1\vee \ldots \vee P_n)_\mathit{Inst}
+    }
+}
+\end{equation}
+\end{figure*}
+
+\subsection{Memory operations}
+
+\paragraph{Load.}
+The load instruction ``v = load $p$'', where both $v$ and $p$ are variable names, updates the program state as follows.
+\[
+{(R, H, P)_{\underline{v = \text{load } p};\ \mathit{Inst}} \Rightarrow (R_{[v \mapsto \text{Select}(H, R(p))]}, H, P \wedge R(p))_\mathit{Inst}}
+\]
+Here, $R(p)$ denotes the value of the variable $p$. We lift $R(\cdot)$ to allow expression input in the usual way. E.g., $R(x+y) = R(x) + R(y)$.
+The array expression $\text{Select}(H, R(p))$ retrieves the value stored at address $R(p)$ in the heap $H$, and the result is assigned to $v$ by updating the register mapping $R$.
+
+\paragraph{Store.}
+The store instruction ``store v, p'' updates the heap value pointed to by $p$ to the value of $v$. Formally,
+\[(R,H, P)_{\underline{\text{store } v, p};\ \mathit{Inst}}   \Rightarrow (R, \text{Store}(H, R(v), R(p)), P \wedge R(p))_\mathit{Inst}\]
+The array expression $\text{Store}(H, R(v), R(p))$ denotes an array that is almost identical to $H$ except that the value at index $R(p)$ is replaced with $R(v)$.
+\subsection{Conditional operations}
+We use $\text{instr}(b)$ to denote the sequence of program commands in code block $b$.
+\paragraph{Br (Branch).}
+For conditional jumps, we will consider both branches. In the rule below, we put the precondition above a horizontal line\footnote{We currently only support finite loops. An infinite loop might cause the analysis to fail to terminate.}. 
+
+\textbf{Then branch:}
+\[\frac{\text{instr}(b_1)=I}
+{(R,H, P)_{\underline{\text{br } f,b_1,b_2};\ \mathit{Inst}} \Rightarrow (R, H, R(f) \wedge P)_{I;\ \mathit{Inst}}}
+\]
+
+\textbf{Else branch:}
+\[\frac{\text{instr}(b_2)=I}
+{(R,H,P)_{\underline{\text{br } f,b_1,b_2};\ \mathit{Inst}} \Rightarrow (R, H, \neg R(f) \wedge P )_{I;\ \mathit{Inst}}}\]
+
+\paragraph{Phi.}
+
+A $\phi$ instruction ``$v = \phi[v_1, b_1], \ldots, [v_n, b_n]$ '' chooses a value for $v$ depending on which control-flow edge was taken to reach the current basic block. If it is from $b_i$, then the $v$ will be assigned the value of $v_i$, for $i\in [1,n]$.
+A $\phi$ instruction cannot appear in the middle of a block. LLVM requires all $\phi$ instructions to appear before any non-$\phi$ instruction in the same basic block. Consequently, $\phi$ instructions appear consecutively at the beginning of a block, allowing them to be processed simultaneously.
+
+We write ``$\text{pred}\ b_1(R_1,H_1,P_1) \ldots b_n(R_n,H_n, P_n)$'' to denote that blocks $b_1\ldots b_n$ are the predecessors of the current block, and their respective symbolic states at the ends of those blocks are shown after. $\bigcup_{k=1}^{n} R_k$ denotes the union of all mappings from \(R_1\) through \(R_n\), and any conflicting mapping corresponds to a \(\phi\) instruction. Note that in the precondition we put $\text{disjoint}(P_1,\ldots,P_n)$ to denote that the path conditions do not have common satisfying assignments. The semantic of $\phi$ instructions is defined in \autoref{phi}.
+
+\begin{comment}
+\[\frac{\text{pred}\ b_1(R_1,H_1, P_1)_\emptyset\ldots b_n(R_n,H_n, P_n)_\emptyset\quad \text{disjoint}(P_1,\ldots, P_n)}
+{
+\begin{aligned}
+(R,H, P)_{\underline{v=\phi[v_1, b_1], \ldots, [v_n, b_n]};\ \mathit{Inst}} & \Rightarrow (R_{[v \mapsto \text{ite}(P_1,R_1(v_1),
+\text{ite}(P_2, R_2(v_2), \ldots))]},\\
+&\quad H, P_1\vee \ldots \vee P_n)_\mathit{Inst}
+\end{aligned}
+}
+\]
+\end{comment}
+
+The ite expression $\text{ite}(P_1,R_1(v_1), \text{ite}(P_2, R_2(v_2), \ldots))$ basically states that if $P_i$ is true, return $R_i(v_i)$.
+
+\paragraph{Icmp and Select.}
+Let $\circ \in \{\text{eq}, \text{gt}, \text{lt}, \dots\}$. The semantics of the comparison and select statements are as follows.
+\paragraph{\texttt{icmp}.}
+\[
+(R,H,P)_{\underline{v = \text{icmp}\ \circ\ p_1\ p_2};\ \mathit{Inst}} \Rightarrow 
+(R_{[v\mapsto R(p_1 \circ p_2)]},H,P)_\mathit{Inst}
+\]
+\paragraph{\texttt{select}.}
+\[
+\begin{aligned}
+&(R,H,P)_{\underline{v = \text{select } f\ p_1\ p_2};\ \mathit{Inst}} \Rightarrow 
+(R_{[v\mapsto \text{ite}(R(f),R(p_1),R(p_2))]},H,P)_\mathit{Inst}
+\end{aligned}
+\]
+
+\subsection{Bitwise Operations}
+The ``and'' and ``or'' operations are encoded using QF\_AUFL\\IA's \texttt{mod} and \texttt{div} operations; see below. The encoding of the general case is not very efficient, as it uses \texttt{mod} to extract the value of each bit and combine them using $\texttt{ite}$ statements.
+
+
+\paragraph{\texttt{and}.}
+\[
+\begin{aligned}
+(R,H,P)_{\underline{v = \text{and}\ p_1\ p_2};\ \mathit{Inst}} \Rightarrow &
+(R_{[v\mapsto ( \sum_{i=0}^{63} 2^i \cdot \text{ite}(((R(p_1)/2^i)\bmod2) =1,}\\
+&\quad_{(R(p_2)/2^i)\bmod2, 0))]},H,P)_\mathit{Inst}
+\end{aligned}
+\]
+\paragraph{\texttt{or}.}
+\[
+\begin{aligned}
+(R,H,P)_{\underline{v = \text{or}\ p_1\ p_2};\ \mathit{Inst}} \Rightarrow &
+(R_{[v\mapsto ( \sum_{i=0}^{63} 2^i \cdot \text{ite}(((R(p_1)/2^i)\bmod2)=0,}\\
+&\quad_{(R(p_2)/2^i)\bmod2, 0))]},H,P)_\mathit{Inst}
+\end{aligned}
+\]
+The shift operations ``shl $n,m$'' (shift left), and ``lshr $n,m$'' (logical shift right with zero fill) are encoded as follows. When $R(n)$ or $R(m)$ are constants, we just use their constant value to compute, e.g., $2^{R(m)}$ instead of encoding it symbolically.
+
+\paragraph{\texttt{shl}.}
+\[
+(R,H,P)_{\underline{v = \text{shl } n,m};\ \mathit{Inst}} \Rightarrow 
+(R_{[v\mapsto (R(n)\cdot 2^{R(m)}) \bmod 2^{64}]},H,P)_\mathit{Inst}
+\]
+
+\paragraph{\texttt{lshr}.}
+\[
+(R,H,P)_{\underline{v = \text{lshr } n,m};\ \mathit{Inst}} \Rightarrow 
+(R_{[v\mapsto (R(n)\text{ div } 2^{R(m)}) \bmod 2^{64}]},H,P)_\mathit{Inst}
+\]
+
+In the paging function implementation, the two operations are often used for masking, which provides a significant optimization opportunity. For ``and'' masking, the bit constants follow the pattern $0^p 1^q 0^r$, i.e., taking the middle $q$ bits. We have a much more efficient encoding for these cases.
+
+\paragraph{\texttt{and} $n$  $(0^p 1^q 0^r)$.}
+
+\[
+\begin{aligned}
+(R,H,P)_{\underline{v = \text{and } n, 0^p 1^q 0^r};\ \mathit{Inst}} \Rightarrow & \\
+ (R,H,P)&_{\underline{v = \text{shl } n,p; v = \text{lshr } v,p+r; v = \text{shl } v,r};\ \mathit{Inst}} 
+\end{aligned}
+\]
+
+For ``or '', we often see the inputs are two constants $d_1$ (in the form of $(0|1)^p0^q$) and $d_2$ (in the form of $(0|1)^q$). The values have no overlap in the bits used and can be modeled as the sum of two values.
+
+\paragraph{\texttt{or} $(0|1)^p 0^q$, $(0|1)^q$.}
+
+\[\frac{d_1 \in (0|1)^p 0^q \quad d_2 \in (0|1)^q}
+{(R,H,P)_{\underline{v = \text{or}\ d_1\ d_2};\ \mathit{Inst}} \Rightarrow  (R,H,P)_{\underline{v = \text{add}\ d_1\ d_2};\ \mathit{Inst}}}\]
+
+\subsection{Others}
+
+\paragraph{Add.}
+The semantic of the binary operation ``add'' is as follows.
+\[
+(R,H,P)_{\underline{v = \text{add}\ p_1\ p_2};\ \mathit{Inst}} \Rightarrow 
+(R_{[v\mapsto R(p_1 + p_2)]},H,P)_\mathit{Inst}
+\]
+
+\paragraph{Ret (Return).}
+The function return instruction ``ret p'' creates a mapping from a distinguished name \(\texttt{ret}\) to the value $R(p)$.
+\[
+(R,H,P)_{\underline{v = \text{ret}\ p};\ \mathit{Inst}} \Rightarrow 
+(R_{[\texttt{ret}\mapsto R(p)]},H,P)_\mathit{Inst}
+\]
+
+
+

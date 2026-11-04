@@ -1,0 +1,396 @@
+@book{clarke2018handbook,
+  title={Handbook of model checking},
+  author={Clarke, Edmund M and Henzinger, Thomas A and Veith, Helmut and Bloem, Roderick and others},
+  volume={10},
+  year={2018},
+  publisher={Springer}
+}
+
+@inproceedings{de2007efficient,
+  title={Efficient E-matching for SMT solvers},
+  author={De Moura, Leonardo and Bj{\o}rner, Nikolaj},
+  booktitle={International Conference on Automated Deduction},
+  pages={183--198},
+  year={2007},
+  organization={Springer}
+}
+
+
+@inproceedings{brun23hotos,
+author = {Brun, Matthias and Achermann, Reto and Chajed, Tej and Howell, Jon and Zellweger, Gerd and Lattuada, Andrea},
+title = {Beyond isolation: OS verification as a foundation for correct applications},
+year = {2023},
+isbn = {9798400701955},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3593856.3595899},
+doi = {10.1145/3593856.3595899},
+abstract = {Verified systems software has generally had to assume the correctness of the operating system and its provided services (like networking and the file system). Even though there exist verified operating systems and file systems, the specifications for these components do not compose with applications to produce a fully verified high-performance software stack.In this position paper, we lay out our vision for what it would look like to have a verified OS with verified applications, all with good multi-core performance. We've explored a part of the verification by proving a page table correct already, but the larger goal is to lay out a vision for an ambitious project that supports an application verified from its high-level specification down to the hardware.},
+booktitle = {Proceedings of the 19th Workshop on Hot Topics in Operating Systems},
+pages = {158–165},
+numpages = {8},
+location = {Providence, RI, USA},
+series = {HotOS '23}
+}
+
+@inproceedings{dai24asplos,
+author = {Dai, Zhenyang and Liu, Shuang and Sjoberg, Vilhelm and Li, Xupeng and Chen, Yu and Wang, Wenhao and Jia, Yuekai and Anderson, Sean Noble and Elbeheiry, Laila and Sondhi, Shubham and Zhang, Yu and Ni, Zhaozhong and Yan, Shoumeng and Gu, Ronghui and He, Zhengyu},
+title = {Verifying Rust Implementation of Page Tables in a Software Enclave Hypervisor},
+year = {2024},
+isbn = {9798400703850},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3620665.3640398},
+doi = {10.1145/3620665.3640398},
+abstract = {As trusted execution environments (TEE) have become the corner stone for secure cloud computing, it is critical that they are reliable and enforce proper isolation, of which a key ingredient is spatial isolation. Many TEEs are implemented in software such as hypervisors for flexibility, and in a memory-safe language, namely Rust to alleviate potential memory bugs. Still, even if memory bugs are absent from the TEE, it may contain semantic errors such as mis-configurations in its memory subsystem which breaks spatial isolation.In this paper, we present the verification of the memory subsystem of a software TEE in Rust, namely HyperEnclave. We prove spatial isolation for the secure enclave though correct configuration of page tables for an early prototype of HyperEnclave. To formally model Rust code, we introduce a lightweight formal semantics for the Mid-level intermediate representation (MIR) of Rust. To make verification scalable for such a complex system, we incorporate the MIR semantics with a layered proof framework.},
+booktitle = {Proceedings of the 29th ACM International Conference on Architectural Support for Programming Languages and Operating Systems, Volume 2},
+pages = {1218–1232},
+numpages = {15},
+keywords = {formal verification, rust, trusted execution environments, extended page tables},
+location = {La Jolla, CA, USA},
+series = {ASPLOS '24}
+}
+
+@inproceedings{ematching,
+author="de Moura, Leonardo
+and Bj{\o}rner, Nikolaj",
+editor="Pfenning, Frank",
+title="Efficient E-Matching for SMT Solvers",
+booktitle="Automated Deduction -- CADE-21",
+year="2007",
+publisher="Springer Berlin Heidelberg",
+address="Berlin, Heidelberg",
+pages="183--198",
+abstract="Satisfiability Modulo Theories (SMT) solvers have proven highly scalable, efficient and suitable for integrating theory reasoning. However, for numerous applications from program analysis and verification, the ground fragment is insufficient, as proof obligations often include quantifiers. A well known approach for quantifier reasoning uses a matching algorithm that works against an E-graph to instantiate quantified variables. This paper introduces algorithms that identify matches on E-graphs incrementally and efficiently. In particular, we introduce an index that works on E-graphs, called E-matching code trees that combine features of substitution and code trees, used in saturation based theorem provers. E-matching code trees allow performing matching against several patterns simultaneously. The code trees are combined with an additional index, called the inverted path index, which filters E-graph terms that may potentially match patterns when the E-graph is updated. Experimental results show substantial performance improvements over existing state-of-the-art SMT solvers.",
+isbn="978-3-540-73595-3"
+}
+
+@inproceedings{mbqi,
+author = {Reynolds, Andrew and Tinelli, Cesare and Goel, Amit and Krsti\'{c}, Sava and Deters, Morgan and Barrett, Clark},
+title = {Quantifier instantiation techniques for finite model finding in SMT},
+year = {2013},
+isbn = {9783642385735},
+publisher = {Springer-Verlag},
+address = {Berlin, Heidelberg},
+url = {https://doi.org/10.1007/978-3-642-38574-2_26},
+doi = {10.1007/978-3-642-38574-2_26},
+abstract = {SMT-based applications increasingly rely on SMT solvers being able to deal with quantified formulas. Current work shows that for formulas with quantifiers over uninterpreted sorts counter-models can be obtained by integrating a finite model finding capability into the architecture of a modern SMT solver. We examine various strategies for on-demand quantifier instantiation in this setting. Here, completeness can be achieved by considering all ground instances over the finite domain of each quantifier. However, exhaustive instantiation quickly becomes unfeasible with larger domain sizes. We propose instantiation strategies to identify and consider only a selection of ground instances that suffices to determine the satisfiability of the input formula. We also examine heuristic quantifier instantiation techniques such as E-matching for the purpose of accelerating the search. We give experimental evidence that our approach is practical for use in industrial applications and is competitive with other approaches.},
+booktitle = {Proceedings of the 24th International Conference on Automated Deduction},
+pages = {377–391},
+numpages = {15},
+location = {Lake Placid, NY},
+series = {CADE'13}
+}
+@inproceedings {spoq,
+author = {Xupeng Li and Xuheng Li and Wei Qiang and Ronghui Gu and Jason Nieh},
+title = {Spoq: Scaling {Machine-Checkable} Systems Verification in Coq},
+booktitle = {17th USENIX Symposium on Operating Systems Design and Implementation (OSDI 23)},
+year = {2023},
+isbn = {978-1-939133-34-2},
+address = {Boston, MA},
+pages = {851--869},
+url = {https://www.usenix.org/conference/osdi23/presentation/li-xupeng},
+publisher = {USENIX Association},
+month = jul
+}
+
+
+@incollection{RaniseTinelli2006,
+  author    = {Silvio Ranise and Cesare Tinelli},
+  title     = {The Satisfiability Modulo Theories Library (SMT-LIB)},
+  booktitle = {Handbook of Satisfiability},
+  publisher = {IOS Press},
+  year      = {2009},
+  pages     = {337--362}
+}
+
+@misc{sekvm-artifact-sosp21,
+author = {Tao, Runzhou and Yao, Jianan and Li, Xupeng and Li, Shih-Wei and Nieh, Jason and Gu, Ronghui},
+title = {{Formal Verification of a Multiprocessor Hypervisor on Arm Relaxed Memory Hardware - VRM artifact}},
+year = {2021},
+publisher = {GitHub},
+journal = {GitHub repository},
+howpublished = {\url{https://github.com/VeriGu/sosp-paper211-ae}}
+}
+
+@misc{sekvm-artifact-sosp21-pt-refine,
+author = {Tao, Runzhou and Yao, Jianan and Li, Xupeng and Li, Shih-Wei and Nieh, Jason and Gu, Ronghui},
+title = {{Formal Verification of a Multiprocessor Hypervisor on Arm Relaxed Memory Hardware - VRM artifact: Page Table Refinement}},
+year = {2021},
+publisher = {GitHub},
+journal = {GitHub repository},
+howpublished = {\url{https://github.com/VeriGu/VRM/blob/master/proofs/sekvm/sekvm_layers/NPTWalkRefine.md}}
+}
+
+@misc{secvma-artifact,
+author={Yen, Teh Beng and Li, Joey and Li, Shih-Wei},
+title = {{Artifacts for SECvma: Virtualization-based Linux Kernel Protection for Arm}},
+year = {2024},
+publisher = {GitHub},
+journal = {GitHub repository},
+howpublished = {\url{https://github.com/ae-acsac24-44/acsac24-paper240-ae}}
+}
+
+@mastersthesis{Brun2022VerifiedPaging,
+  author  = {Brun, Matthias},
+  title   = {Verified Paging for x86-64 in Rust},
+  school  = {ETH Zurich},
+  year    = {2022},
+  type    = {Master Thesis},
+  month   = {oct},
+  url     = {https://www.research-collection.ethz.ch/handle/20.500.11850/594366}
+}
+
+@inproceedings{zhang25cortenmm,
+author = {Zhang, Junyang and Xu, Xiangcan and Zou, Yonghao and Tang, Zhe and Wan, Xinyi and Hu, Kang and Wang, Siyuan and Xu, Wenbo and Wang, Di and Chen, Hao and Huang, Lin and Yan, Shoumeng and Tamir, Yuval and Luo, Yingwei and Wang, Xiaolin and Yu, Huashan and Wang, Zhenlin and Tian, Hongliang and Zhou, Diyu},
+title = {{CortenMM: Efficient Memory Management with Strong Correctness Guarantees}},
+year = {2025},
+isbn = {9798400718700},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3731569.3764836},
+doi = {10.1145/3731569.3764836},
+booktitle = {Proceedings of the ACM SIGOPS 31st Symposium on Operating Systems Principles},
+pages = {1082–1098},
+numpages = {17},
+series = {SOSP '25}
+}
+
+@inproceedings{atmosphere2025sosp,
+author = {Chen, Xiangdong and Li, Zhaofeng and Zhang, Jerry and Narayanan, Vikram and Burtsev, Anton},
+title = {{Atmosphere: Practical Verified Kernels with Rust and Verus}},
+year = {2025},
+isbn = {9798400718700},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3731569.3764821},
+doi = {10.1145/3731569.3764821},
+pages = {752–767},
+numpages = {16},
+keywords = {operating systems, microkernels, formal verification},
+location = {Lotte Hotel World, Seoul, Republic of Korea},
+series = {SOSP '25}
+}
+
+@misc{atmosphere-artifact,
+author = {Chen, Xiangdong and Li, Zhaofeng and Zhang, Jerry and Narayanan, Vikram and Burtsev, Anton},
+title = {{Atmosphere SOSP'25 Artifact}},
+year = {Accessed 2026},
+publisher = {GitHub},
+journal = {GitHub repository},
+howpublished = {\url{https://github.com/mars-research/atmosphere-sosp25-artifact/blob/AE-verification-bench-\%2B-syscall_benchs/kernel/verified/pagetable/pagetable_spec_impl.rs}}
+}
+
+@inproceedings{verus,
+author = {Lattuada, Andrea and Hance, Travis and Bosamiya, Jay and Brun, Matthias and Cho, Chanhee and LeBlanc, Hayley and Srinivasan, Pranav and Achermann, Reto and Chajed, Tej and Hawblitzel, Chris and Howell, Jon and Lorch, Jacob R. and Padon, Oded and Parno, Bryan},
+title = {Verus: A Practical Foundation for Systems Verification},
+year = {2024},
+isbn = {9798400712517},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3694715.3695952},
+doi = {10.1145/3694715.3695952},
+booktitle = {Proceedings of the ACM SIGOPS 30th Symposium on Operating Systems Principles},
+pages = {438–454},
+numpages = {17},
+location = {Austin, TX, USA},
+series = {SOSP '24}
+}
+
+@inproceedings{sel4,
+author = {Klein, Gerwin and Elphinstone, Kevin and Heiser, Gernot and Andronick, June and Cock, David and Derrin, Philip and Elkaduwe, Dhammika and Engelhardt, Kai and Kolanski, Rafal and Norrish, Michael and Sewell, Thomas and Tuch, Harvey and Winwood, Simon},
+title = {seL4: formal verification of an OS kernel},
+year = {2009},
+isbn = {9781605587523},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/1629575.1629596},
+doi = {10.1145/1629575.1629596},
+booktitle = {Proceedings of the ACM SIGOPS 22nd Symposium on Operating Systems Principles},
+pages = {207–220},
+numpages = {14},
+keywords = {isabelle/hol, l4, microkernel, sel4},
+location = {Big Sky, Montana, USA},
+series = {SOSP '09}
+}
+
+@inproceedings{hyperkernel,
+author = {Nelson, Luke and Sigurbjarnarson, Helgi and Zhang, Kaiyuan and Johnson, Dylan and Bornholt, James and Torlak, Emina and Wang, Xi},
+title = {Hyperkernel: Push-Button Verification of an OS Kernel},
+year = {2017},
+isbn = {9781450350853},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3132747.3132748},
+doi = {10.1145/3132747.3132748},
+booktitle = {Proceedings of the 26th Symposium on Operating Systems Principles},
+pages = {252–269},
+numpages = {18},
+location = {Shanghai, China},
+series = {SOSP '17}
+}
+
+@INPROCEEDINGS{secvma2024acsac,
+  author={Yen, Teh Beng and Li, Joey and Li, Shih-Wei},
+  booktitle={2024 Annual Computer Security Applications Conference (ACSAC)}, 
+  title={SECvma: Virtualization-based Linux Kernel Protection for Arm}, 
+  year={2024},
+  volume={},
+  number={},
+  pages={579-592},
+  keywords={Codes;Virtual machine monitors;Linux;Prototypes;Virtual machines;Kernel;Protection;Standards;Optimization;Rootkit;Operating Systems;Security;Virtualization},
+  doi={10.1109/ACSAC63791.2024.00056}
+}
+
+@inproceedings{barrett2010smt,
+  title={The smt-lib standard: Version 2.0},
+  author={Barrett, Clark and Stump, Aaron and Tinelli, Cesare and others},
+  booktitle={Proceedings of the 8th international workshop on satisfiability modulo theories (Edinburgh, UK)},
+  volume={13},
+  pages={14},
+  year={2010}
+}
+
+@misc{llvminst,
+  title        = {LLVM Language Reference Manual},
+  author = {The LLVM Foundation},
+  howpublished          = {https://llvm.org/docs/LangRef.html}
+}
+
+@inproceedings{li:ieeesp2021,
+    author = {Shih-Wei Li and Xupeng Li and Ronghui Gu and Jason Nieh and John Zhuang Hui},
+  title = {{A Secure and Formally Verified Linux KVM Hypervisor}},
+  booktitle = {Proceedings of the 2021 IEEE Symposium on Security and Privacy
+  (IEEE S\&P 2021)},
+  year = {2021},
+  month = may
+}
+
+@inproceedings{taososp21,
+author = {Tao, Runzhou and Yao, Jianan and Li, Xupeng and Li, Shih-Wei and Nieh, Jason and Gu, Ronghui},
+title = {Formal Verification of a Multiprocessor Hypervisor on Arm Relaxed Memory Hardware},
+year = {2021},
+isbn = {9781450387095},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3477132.3483560},
+doi = {10.1145/3477132.3483560},
+booktitle = {Proceedings of the ACM SIGOPS 28th Symposium on Operating Systems Principles},
+pages = {866–881},
+numpages = {16},
+keywords = {Arm, Formal methods, KVM, hypervisors, relaxed memory, systems verification},
+location = {Virtual Event, Germany},
+series = {SOSP '21}
+}
+
+@inproceedings{certikos,
+  title={{CertiKOS}: An extensible architecture for building certified concurrent {OS} kernels},
+  author={Gu, Ronghui and Shao, Zhong and Chen, Hao and Wu, Xiongnan Newman and Kim, Jieung and Sj{\"o}berg, Vilhelm and Costanzo, David},
+  booktitle={12th USENIX Symposium on Operating Systems Design and Implementation (OSDI 16)},
+  pages={653--669},
+  year={2016}
+}
+
+
+@misc{hackbench,
+    title={hackbench - scheduler benchmark/stress test},
+    year={2010},
+    author={Canonical Ltd.},
+    howpublished={\url{https://manpages.ubuntu.com/manpages/xenial/en/man8/hackbench.8.html}}
+}
+
+@misc{cloudlab-hw,
+ title = {{The CloudLab Manual: 12 Hardware.}},
+ year = {2024},
+ month = {jan},
+ author = {CloudLab},
+ note = {\url{https://docs.cloudlab.us/hardware.html}},
+}
+
+@misc{ab,
+  author = {{The Apache Software Foundation}},             
+  title = {{ab - Apache HTTP server benchmarking tool}},
+  howpublished = {\url{http://httpd.apache.org/docs/2.4/programs/ab.html}},
+  year = 2015,
+  month = apr,
+}
+
+@inproceedings {li:sekvm:usenix21,
+author = {Shih-Wei Li and Xupeng Li and Ronghui Gu and Jason Nieh and John Zhuang Hui},
+title = {Formally Verified Memory Protection for a Commodity Multiprocessor Hypervisor},
+booktitle = {30th USENIX Security Symposium (USENIX Security 21)},
+year = {2021},
+isbn = {978-1-939133-24-3},
+pages = {3953--3970},
+url = {https://www.usenix.org/conference/usenixsecurity21/presentation/li-shih-wei},
+publisher = {USENIX Association},
+month = aug
+}
+
+@misc{memtier,
+    title={Memtier Benchmark},
+    author={Redis Labs},
+    year={Accessed 2024},
+    howpublished={\url{https://github.com/RedisLabs/memtier_benchmark}}
+}
+
+@inproceedings{cooper2010benchmarking,
+  title={Benchmarking cloud serving systems with YCSB},
+  author={Cooper, Brian F and Silberstein, Adam and Tam, Erwin and Ramakrishnan, Raghu and Sears, Russell},
+  booktitle={Proceedings of the 1st ACM symposium on Cloud computing},
+  pages={143--154},
+  year={2010}
+}
+
+@inproceedings{z3,
+author = {De Moura, Leonardo and Bj\o{}rner, Nikolaj},
+title = {Z3: an efficient SMT solver},
+year = {2008},
+isbn = {3540787992},
+publisher = {Springer-Verlag},
+address = {Berlin, Heidelberg},
+booktitle = {Proceedings of the Theory and Practice of Software, 14th International Conference on Tools and Algorithms for the Construction and Analysis of Systems},
+pages = {337–340},
+numpages = {4},
+location = {Budapest, Hungary},
+series = {TACAS'08/ETAPS'08}
+}
+
+@misc{spoq-artifact,
+    title={Artifact for Paper: Spoq: Scaling Machine-Checkable Systems Verification in Coq},
+    author={Xuheng Li},
+    year={Accessed 2026},
+    howpublished={\url{https://github.com/columbia/osdi23-paper114-ae/tree/7547d8c7e573cdc2d4b5be851dc3ebe342b8ce55?tab=readme-ov-file}},
+}
+
+@misc{npt-walk-sekvm-spoq-artifact,
+    title={},
+    author={Xuheng Li},
+    year={Accessed 2026},
+    howpublished={\url{https://github.com/columbia/osdi23-paper114-sekvm/blob/be2827dc1b45de10afab2462c177b902536bf5c6/arch/arm64/hypsec_proved/NPTWalk.c
+}},
+}
+
+@misc{set-npt-refine-sekvm-spoq-artifact,
+    title={},
+    author={Xuheng Li},
+    year={Accessed 2026},
+    howpublished={\url{https://github.com/columbia/osdi23-paper114-ae/blob/7547d8c7e573cdc2d4b5be851dc3ebe342b8ce55/verification/SeKVMProof/Proof/S2PTTreeOps/set_npt/RefProof.v#L752
+}},
+}
+
+@inproceedings{spoq2,
+author = {Yang, Ganxiang and Qiang, Wei and Rong, Yi and Li, Xuheng and Yu, Fanqi and Nieh, Jason and Gu, Ronghui},
+title = {Highly Automated Verification of Security Properties for Unmodified System Software},
+year = {2026},
+isbn = {9798400723599},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3779212.3790171},
+doi = {10.1145/3779212.3790171},
+pages = {912–928},
+numpages = {17},
+keywords = {formal verification, system software, automated verification, security properties, smt solvers},
+location = {USA},
+series = {ASPLOS '26}
+}
