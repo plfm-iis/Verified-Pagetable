@@ -1,0 +1,140 @@
+\documentclass[sigplan,nonacm,10pt]{acmart}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\pagestyle{plain}
+
+\usepackage{times}
+\usepackage{extpfeil}
+\usepackage{xcolor}
+\usepackage{minted}
+\usepackage{listings}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{enumitem}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\usepackage{booktabs}
+\usepackage{filecontents}
+\usepackage{graphicx}
+\usepackage{comment}
+
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{inconsolata}
+\usepackage{tikz}
+
+\usepackage{tcolorbox}
+\usepackage{amsthm}
+\newtheorem{Property}{Property}
+\newcommand{\codessmall}[1]{{\scriptsize\texttt{\textcolor{mygray}{#1}}}}
+
+\newcommand{\ppv}{PPV}
+
+%%%%%%%% code packages %%%%%%%%
+
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{tikz}
+\usetikzlibrary{arrows, arrows.meta, automata, positioning, decorations.pathmorphing, shadows, shapes}
+\newcommand{\tkfig}[1]{\raisebox{-.5 ex}{\tikz{#1}}}
+\usepackage{xypic} % forward simulation diagram
+\usepackage[scaled]{beramono}
+\usepackage[T1]{fontenc}
+
+\definecolor{myblue}{HTML}{3A849E}
+%\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{myorange}{HTML}{B25A00}
+\definecolor{mygreen}{HTML}{467E7E}
+\definecolor{mygray}{rgb}{0.4,0.4,0.4}
+\definecolor{mymauve}{HTML}{AC134D}
+\definecolor{steelblue}{rgb}{.10,.40,.85}
+
+\lstdefinestyle{customc}{
+  language=C,
+  basicstyle=\linespread{0.9}\ttfamily\footnotesize,
+  breakatwhitespace=false,
+  breaklines=true,   
+  keywordstyle=\bfseries\color{myblue!90},%
+  commentstyle=\itshape\color{mygreen},
+  stringstyle=\color{orange},
+  emph = {add0, add1, add2, add3, map_npt, map_page_wrong, map_page,},
+  emphstyle=\color{mymauve!70},
+  deletekeywords={get},
+  escapeinside={<@}{@>},
+  keepspaces=true,
+  otherkeywords={64, uint, ...},     
+  tabsize=2,	        
+}
+
+\lstdefinestyle{coq}{
+  language=Octave,
+  basicstyle=\linespread{0.96}\ttfamily\footnotesize,
+  breakatwhitespace=false,       
+  breaklines=true,                
+  commentstyle=\itshape\color{mygreen},
+  keywordstyle=\bfseries\color{myblue!90},
+  stringstyle=\color{mymauve},     
+  deletekeywords={...},            
+  keepspaces=true,   
+  otherkeywords={uint, Function, Inductive, Definition, Fixpoint, Parameter, Record, then, @},     
+  deletekeywords={get, set, pi, log, end, do},
+  morecomment=[s]{(*}{*)},
+  emph = {add_spec, option, fst, snd, Some, None, let, match, in, with, nil, exists, forall, and, end, list},
+  emphstyle=\color{mymauve!70},
+  tabsize=2,                    
+  escapeinside={<@}{@>},
+  showstringspaces=false,
+  % --- THE CLEAN FIX FOR PRIMES ---
+  deletestring=[b]',               % Remove single quotes from string parsing
+  deletestring=[b]",               % Remove double quotes from string parsing
+  alsoletter={', "},               % Treat ' and " as normal letters so they don't break code
+}
+
+%%%%%%%%
+
+\definecolor{codegray}{gray}{0.5}
+%%
+%% \BibTeX command to typeset BibTeX logo in the docs
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    Bib\TeX}}}
+\newcommand{\ivan}[1]{\textcolor{blue}{\ifmmode \text{[Ivan: #1]}\else #1 \fi}}
+\newcommand{\yfc}[1]{\textcolor{black}{\ifmmode \text{[YF: #1]}\else #1 \fi}}
+\newcommand{\sw}[1]{\textcolor{brown}{\ifmmode \text{[SW: #1]}\else #1\fi}}
+\newcommand{\icode}[1]{\texttt{#1}}
+\newcommand\todo[1]{\textcolor{red}{TODO: #1}}
+\newcommand{\code}[1]{\text{\inconsolata{#1}}}
+\newcommand{\true}[0]{\texttt{true}}
+
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\settopmatter{printfolios=true}
+%\captionsetup[table]{font=footnotesize}
+
+\begin{document}
+
+\pagestyle{plain}
+\date{}
+
+\title{Push-Button Verification of Paging Functions in Operating Systems}
+
+\author{{\rm paper 2786}} % end author
+
+\input{abstract}
+\maketitle
+
+\input{intro}
+\input{background}
+\input{overview-sw}
+\input{formalization}
+\input{eval}
+\input{future}
+
+%\bibliographystyle{plain}
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{reference}
+
+\appendix
+\input{semantics}
+\input{coq}
+%\input{casestudy}
+\end{document}
