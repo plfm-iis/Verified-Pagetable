@@ -1,9 +1,8 @@
-\documentclass[sigplan,nonacm,10pt]{acmart}
-\renewcommand\footnotetextcopyrightpermission[1]{}
+\documentclass[letterpaper,twocolumn,10pt]{article}
+\usepackage{usenix2019_v3}
 \pagestyle{plain}
 
 \usepackage{times}
-\usepackage{extpfeil}
 \usepackage{xcolor}
 \usepackage{minted}
 \usepackage{listings}
@@ -21,7 +20,6 @@
 
 \usepackage{amsmath}
 \usepackage{mathtools}
-\usepackage{inconsolata}
 \usepackage{tikz}
 
 \usepackage{tcolorbox}
@@ -38,7 +36,6 @@
 \usetikzlibrary{arrows, arrows.meta, automata, positioning, decorations.pathmorphing, shadows, shapes}
 \newcommand{\tkfig}[1]{\raisebox{-.5 ex}{\tikz{#1}}}
 \usepackage{xypic} % forward simulation diagram
-\usepackage[scaled]{beramono}
 \usepackage[T1]{fontenc}
 
 \definecolor{myblue}{HTML}{3A849E}
@@ -103,11 +100,9 @@
 \newcommand{\sw}[1]{\textcolor{brown}{\ifmmode \text{[SW: #1]}\else #1\fi}}
 \newcommand{\icode}[1]{\texttt{#1}}
 \newcommand\todo[1]{\textcolor{red}{TODO: #1}}
-\newcommand{\code}[1]{\text{\inconsolata{#1}}}
+\newcommand{\code}[1]{\text{\texttt{#1}}}
 \newcommand{\true}[0]{\texttt{true}}
 
-\renewcommand\footnotetextcopyrightpermission[1]{}
-\settopmatter{printfolios=true}
 %\captionsetup[table]{font=footnotesize}
 
 \begin{document}
@@ -117,10 +112,10 @@
 
 \title{Push-Button Verification of Paging Functions in Operating Systems}
 
-\author{{\rm paper 2786}} % end author
+\author{Anonymous submission}
 
-\input{abstract}
 \maketitle
+\input{abstract}
 
 \input{intro}
 \input{background}
@@ -130,7 +125,7 @@
 \input{future}
 
 %\bibliographystyle{plain}
-\bibliographystyle{ACM-Reference-Format}
+\bibliographystyle{plain}
 \bibliography{reference}
 
 \appendix
